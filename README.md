@@ -35,7 +35,7 @@
 3. Source를 "main" 브랜치로 설정
 4. 저장하면 자동으로 배포됩니다
 
-배포 URL: `https://trollgameskr.github.io/cube-game/`
+배포 URL: http://trollgameskr.github.io/cube-game/
 
 ## 🛠️ 기술 스택
 - **HTML5**: 게임 구조
