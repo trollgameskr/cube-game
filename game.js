@@ -1,16 +1,13 @@
-// 3x3 Cube Puzzle Game - Interactive 2D representation
+// 3x3 Cube Puzzle Game - Interactive 3D representation using CSS 3D Transforms
 class CubePuzzleGame {
     constructor() {
-        this.canvas = null;
-        this.ctx = null;
+        this.container = null;
         this.cube = this.createSolvedCube();
-        this.rotation = { x: -0.5, y: 0.8 };
+        this.cubeElement = null;
+        this.cubies = []; // Individual 3x3x3 = 27 small cubes
         this.isDragging = false;
         this.previousMousePosition = { x: 0, y: 0 };
-        this.animating = false;
-        this.selectedFace = null;
-        this.swipeStart = null;
-        this.swipeThreshold = 30;
+        this.rotation = { x: -30, y: -45 };
         this.moveCount = 0;
         
         this.colors = {
@@ -26,29 +23,229 @@ class CubePuzzleGame {
     }
 
     init() {
-        this.setupCanvas();
+        this.setupScene();
+        this.setupCube();
         this.setupControls();
         this.scrambleCube();
-        this.animate();
+        this.updateCubeRotation();
     }
 
-    setupCanvas() {
-        const container = document.getElementById('canvas-container');
-        this.canvas = document.createElement('canvas');
+    setupScene() {
+        this.container = document.getElementById('canvas-container');
+        this.container.style.perspective = '1000px';
+        this.container.style.perspectiveOrigin = '50% 50%';
         
-        const size = Math.min(window.innerWidth, window.innerHeight * 0.8);
-        this.canvas.width = size;
-        this.canvas.height = size;
+        this.cubeElement = document.createElement('div');
+        this.cubeElement.className = 'cube-3d';
+        this.cubeElement.style.cssText = `
+            position: relative;
+            width: 300px;
+            height: 300px;
+            transform-style: preserve-3d;
+            margin: 0 auto;
+        `;
         
-        this.ctx = this.canvas.getContext('2d');
-        container.appendChild(this.canvas);
+        this.container.appendChild(this.cubeElement);
+    }
+
+    setupCube() {
+        this.cubies = [];
+        const cubieSize = 95; // Size of each small cube
+        const gap = 5;
+        
+        // Create 27 small cubes (3x3x3)
+        for (let x = 0; x < 3; x++) {
+            for (let y = 0; y < 3; y++) {
+                for (let z = 0; z < 3; z++) {
+                    const cubie = this.createCubie(x, y, z, cubieSize, gap);
+                    this.cubies.push(cubie);
+                    this.cubeElement.appendChild(cubie.element);
+                }
+            }
+        }
+        
+        this.updateCubieColors();
+    }
+
+    createCubie(x, y, z, size, gap) {
+        const cubie = document.createElement('div');
+        cubie.className = 'cubie';
+        
+        const offset = (size + gap) - (size + gap) * 1.5;
+        const posX = x * (size + gap) + offset;
+        const posY = -y * (size + gap) - offset;
+        const posZ = z * (size + gap) + offset;
+        
+        cubie.style.cssText = `
+            position: absolute;
+            width: ${size}px;
+            height: ${size}px;
+            transform-style: preserve-3d;
+            transform: translate3d(${posX}px, ${posY}px, ${posZ}px);
+        `;
+        
+        // Create 6 faces for each cubie
+        const faces = [
+            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${size/2}px` },
+            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${size/2}px` },
+            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${size/2}px` },
+            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${size/2}px` },
+            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${size/2}px` },
+            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${size/2}px` }
+        ];
+        
+        const faceElements = {};
+        faces.forEach(face => {
+            const faceEl = document.createElement('div');
+            faceEl.className = `face face-${face.name}`;
+            faceEl.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                background: #000;
+                border: 2px solid #222;
+                transform: ${face.rotation} translate3d(${face.translate});
+                backface-visibility: hidden;
+            `;
+            cubie.appendChild(faceEl);
+            faceElements[face.name] = faceEl;
+        });
+        
+        return {
+            element: cubie,
+            faces: faceElements,
+            position: { x, y, z }
+        };
+    }
+
+    updateCubieColors() {
+        const faceMapping = {
+            front: { axis: 'z', value: 2 },
+            back: { axis: 'z', value: 0 },
+            left: { axis: 'x', value: 0 },
+            right: { axis: 'x', value: 2 },
+            top: { axis: 'y', value: 0 },
+            bottom: { axis: 'y', value: 2 }
+        };
+        
+        Object.keys(faceMapping).forEach(faceName => {
+            const face = this.cube[faceName];
+            const mapping = faceMapping[faceName];
+            
+            // Get cubies on this face
+            const faceCubies = this.cubies.filter(cubie => 
+                cubie.position[mapping.axis] === mapping.value
+            );
+            
+            // Sort cubies to match the face array order
+            faceCubies.sort((a, b) => {
+                if (mapping.axis === 'z') {
+                    if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+                    return a.position.x - b.position.x;
+                } else if (mapping.axis === 'y') {
+                    if (a.position.z !== b.position.z) return a.position.z - b.position.z;
+                    return a.position.x - b.position.x;
+                } else { // x axis
+                    if (a.position.y !== b.position.y) return a.position.y - b.position.y;
+                    if (mapping.value === 2) return a.position.z - b.position.z;
+                    return b.position.z - a.position.z;
+                }
+            });
+            
+            // Update colors
+            faceCubies.forEach((cubie, index) => {
+                const colorIndex = face[index];
+                const faceEl = cubie.faces[faceName];
+                if (faceEl) {
+                    faceEl.style.background = this.colors[colorIndex];
+                }
+            });
+        });
+    }
+
+    updateCubeRotation() {
+        this.cubeElement.style.transform = `rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg)`;
+    }
+
+    setupControls() {
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        
+        const onPointerDown = (e) => {
+            isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            previousMousePosition = { x: clientX, y: clientY };
+        };
+
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const deltaX = clientX - previousMousePosition.x;
+            const deltaY = clientY - previousMousePosition.y;
+            
+            this.rotation.y += deltaX * 0.5;
+            this.rotation.x += deltaY * 0.5;
+            
+            this.updateCubeRotation();
+            
+            previousMousePosition = { x: clientX, y: clientY };
+        };
+
+        const onPointerUp = () => {
+            isDragging = false;
+        };
+
+        this.container.addEventListener('mousedown', onPointerDown);
+        this.container.addEventListener('mousemove', onPointerMove);
+        this.container.addEventListener('mouseup', onPointerUp);
+        this.container.addEventListener('mouseleave', onPointerUp);
+
+        this.container.addEventListener('touchstart', onPointerDown, { passive: false });
+        this.container.addEventListener('touchmove', onPointerMove, { passive: false });
+        this.container.addEventListener('touchend', onPointerUp);
+        this.container.addEventListener('touchcancel', onPointerUp);
+
+        document.getElementById('reset-btn').addEventListener('click', () => this.resetCube());
+        document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
+        
+        // Add rotation buttons
+        this.addRotationButtons();
         
         window.addEventListener('resize', () => this.onWindowResize(), false);
     }
 
+    addRotationButtons() {
+        const controls = document.getElementById('controls');
+        const rotationControls = document.createElement('div');
+        rotationControls.id = 'rotation-controls';
+        rotationControls.style.cssText = 'display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; justify-content: center;';
+        
+        const moves = [
+            { label: 'U', move: 'U' }, { label: 'U\'', move: 'Ui' },
+            { label: 'D', move: 'D' }, { label: 'D\'', move: 'Di' },
+            { label: 'L', move: 'L' }, { label: 'L\'', move: 'Li' },
+            { label: 'R', move: 'R' }, { label: 'R\'', move: 'Ri' },
+            { label: 'F', move: 'F' }, { label: 'F\'', move: 'Fi' },
+            { label: 'B', move: 'B' }, { label: 'B\'', move: 'Bi' }
+        ];
+        
+        moves.forEach(({ label, move }) => {
+            const btn = document.createElement('button');
+            btn.textContent = label;
+            btn.className = 'btn-small';
+            btn.addEventListener('click', () => this.executeMove(move, true));
+            rotationControls.appendChild(btn);
+        });
+        
+        controls.appendChild(rotationControls);
+    }
+
     createSolvedCube() {
-        // Create a 3x3x3 cube where each face is a single color
-        // Each face is represented as a 3x3 array
         return {
             front: Array(9).fill(0),  // Red
             back: Array(9).fill(1),   // Orange
@@ -59,148 +256,13 @@ class CubePuzzleGame {
         };
     }
 
-    setupControls() {
-        let swipeStartPos = null;
-        let clickedFace = null;
-
-        const onPointerDown = (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            swipeStartPos = {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
-            
-            clickedFace = this.getFaceAtPosition(swipeStartPos.x, swipeStartPos.y);
-        };
-
-        const onPointerMove = (e) => {
-            if (!swipeStartPos) return;
-            
-            e.preventDefault();
-            const rect = this.canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            const currentPos = {
-                x: clientX - rect.left,
-                y: clientY - rect.top
-            };
-            
-            const deltaX = currentPos.x - swipeStartPos.x;
-            const deltaY = currentPos.y - swipeStartPos.y;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            
-            if (distance > this.swipeThreshold && clickedFace) {
-                // Determine swipe direction
-                const angle = Math.atan2(deltaY, deltaX);
-                const direction = this.getSwipeDirection(angle);
-                
-                this.handleSwipe(clickedFace, direction);
-                swipeStartPos = null;
-                clickedFace = null;
-            }
-        };
-
-        const onPointerUp = (e) => {
-            if (swipeStartPos && clickedFace) {
-                // Tap without swipe - highlight face
-                this.highlightFace(clickedFace);
-            }
-            swipeStartPos = null;
-            clickedFace = null;
-        };
-
-        this.canvas.addEventListener('mousedown', onPointerDown);
-        this.canvas.addEventListener('mousemove', onPointerMove);
-        this.canvas.addEventListener('mouseup', onPointerUp);
-        this.canvas.addEventListener('mouseleave', onPointerUp);
-
-        this.canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-        this.canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-        this.canvas.addEventListener('touchend', onPointerUp);
-        this.canvas.addEventListener('touchcancel', onPointerUp);
-
-        document.getElementById('reset-btn').addEventListener('click', () => this.resetCube());
-        document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
-    }
-
-    getFaceAtPosition(x, y) {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const faceSize = Math.min(this.canvas.width, this.canvas.height) / 5;
-        
-        const faces = [
-            { name: 'top', x: centerX - faceSize / 2, y: centerY - faceSize * 2, w: faceSize, h: faceSize },
-            { name: 'left', x: centerX - faceSize * 1.5, y: centerY - faceSize / 2, w: faceSize, h: faceSize },
-            { name: 'front', x: centerX - faceSize / 2, y: centerY - faceSize / 2, w: faceSize, h: faceSize },
-            { name: 'right', x: centerX + faceSize / 2, y: centerY - faceSize / 2, w: faceSize, h: faceSize },
-            { name: 'bottom', x: centerX - faceSize / 2, y: centerY + faceSize / 2, w: faceSize, h: faceSize },
-            { name: 'back', x: centerX - faceSize / 2, y: centerY + faceSize * 1.5, w: faceSize, h: faceSize }
-        ];
-        
-        for (let face of faces) {
-            if (x >= face.x && x <= face.x + face.w &&
-                y >= face.y && y <= face.y + face.h) {
-                return face.name;
-            }
-        }
-        return null;
-    }
-
-    getSwipeDirection(angle) {
-        // Convert angle to direction: right, left, up, down
-        const deg = angle * 180 / Math.PI;
-        if (deg > -45 && deg <= 45) return 'right';
-        if (deg > 45 && deg <= 135) return 'down';
-        if (deg > 135 || deg <= -135) return 'left';
-        return 'up';
-    }
-
-    handleSwipe(face, direction) {
-        // Map face and swipe direction to cube rotations
-        const moves = {
-            'front': { 'up': 'F', 'down': 'Fi', 'left': 'F', 'right': 'Fi' },
-            'back': { 'up': 'B', 'down': 'Bi', 'left': 'B', 'right': 'Bi' },
-            'top': { 'up': 'U', 'down': 'Ui', 'left': 'U', 'right': 'Ui' },
-            'bottom': { 'up': 'D', 'down': 'Di', 'left': 'D', 'right': 'Di' },
-            'left': { 'up': 'L', 'down': 'Li', 'left': 'L', 'right': 'Li' },
-            'right': { 'up': 'R', 'down': 'Ri', 'left': 'R', 'right': 'Ri' }
-        };
-        
-        if (moves[face] && moves[face][direction]) {
-            this.executeMove(moves[face][direction], true); // true = count this move
-            this.showMoveIndicator(face, direction);
-        }
-    }
-
-    highlightFace(faceName) {
-        this.selectedFace = faceName;
-        setTimeout(() => {
-            this.selectedFace = null;
-        }, 300);
-    }
-
-    showMoveIndicator(face, direction) {
-        const message = document.getElementById('message');
-        const arrows = { 'up': '↑', 'down': '↓', 'left': '←', 'right': '→' };
-        message.textContent = `${face.toUpperCase()} ${arrows[direction]}`;
-        message.classList.remove('hidden');
-        
-        setTimeout(() => {
-            message.classList.add('hidden');
-        }, 500);
-    }
-
     scrambleCube() {
         const moves = ['U', 'D', 'L', 'R', 'F', 'B'];
         const scrambleMoves = 20;
         
         for (let i = 0; i < scrambleMoves; i++) {
             const move = moves[Math.floor(Math.random() * moves.length)];
-            this.executeMove(move, false); // false = don't count scramble moves
+            this.executeMove(move, false);
         }
     }
 
@@ -223,6 +285,12 @@ class CubePuzzleGame {
             case 'Fi': this.rotateFront(false); break;
             case 'B': this.rotateBack(true); break;
             case 'Bi': this.rotateBack(false); break;
+        }
+        
+        this.updateCubieColors();
+        
+        if (countMove) {
+            this.checkWinCondition();
         }
     }
 
@@ -467,79 +535,6 @@ class CubePuzzleGame {
         }
     }
 
-    drawFace(face, x, y, size, faceName) {
-        const cellSize = size / 3;
-        const gap = 2;
-        
-        for (let i = 0; i < 9; i++) {
-            const row = Math.floor(i / 3);
-            const col = i % 3;
-            
-            this.ctx.fillStyle = this.colors[face[i]];
-            
-            // Highlight if selected
-            if (this.selectedFace === faceName) {
-                this.ctx.shadowColor = '#ffffff';
-                this.ctx.shadowBlur = 15;
-            }
-            
-            this.ctx.fillRect(
-                x + col * cellSize + gap,
-                y + row * cellSize + gap,
-                cellSize - gap * 2,
-                cellSize - gap * 2
-            );
-            
-            this.ctx.shadowBlur = 0;
-            
-            this.ctx.strokeStyle = '#333';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(
-                x + col * cellSize + gap,
-                y + row * cellSize + gap,
-                cellSize - gap * 2,
-                cellSize - gap * 2
-            );
-        }
-        
-        // Draw face label
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        const faceLabels = {
-            'front': 'F',
-            'back': 'B',
-            'left': 'L',
-            'right': 'R',
-            'top': 'U',
-            'bottom': 'D'
-        };
-        this.ctx.fillText(faceLabels[faceName], x + size / 2, y - 10);
-    }
-
-    draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const faceSize = Math.min(this.canvas.width, this.canvas.height) / 5;
-        
-        // Draw cube faces in an unfolded pattern
-        const layout = [
-            { face: 'top', x: centerX - faceSize / 2, y: centerY - faceSize * 2 },
-            { face: 'left', x: centerX - faceSize * 1.5, y: centerY - faceSize / 2 },
-            { face: 'front', x: centerX - faceSize / 2, y: centerY - faceSize / 2 },
-            { face: 'right', x: centerX + faceSize / 2, y: centerY - faceSize / 2 },
-            { face: 'bottom', x: centerX - faceSize / 2, y: centerY + faceSize / 2 },
-            { face: 'back', x: centerX - faceSize / 2, y: centerY + faceSize * 1.5 }
-        ];
-        
-        layout.forEach(({ face, x, y }) => {
-            this.drawFace(this.cube[face], x, y, faceSize, face);
-        });
-    }
-
     checkWinCondition() {
         const isSolved = Object.values(this.cube).every(face => {
             const firstColor = face[0];
@@ -564,7 +559,7 @@ class CubePuzzleGame {
 
     showHint() {
         const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 한 면씩 맞춰보세요!';
+        message.textContent = '💡 힌트: 드래그로 큐브를 회전하고, 버튼으로 면을 돌리세요!';
         message.classList.remove('hidden');
         
         setTimeout(() => {
@@ -577,23 +572,15 @@ class CubePuzzleGame {
         this.moveCount = 0;
         document.getElementById('moves').textContent = '0';
         document.getElementById('message').classList.add('hidden');
+        this.updateCubieColors();
         setTimeout(() => this.scrambleCube(), 100);
     }
 
     onWindowResize() {
-        const size = Math.min(window.innerWidth, window.innerHeight * 0.8);
-        this.canvas.width = size;
-        this.canvas.height = size;
-    }
-
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.draw();
-        
-        // Check win condition periodically
-        if (Math.random() < 0.01) {
-            this.checkWinCondition();
-        }
+        // Adjust cube size if needed based on viewport
+        const size = Math.min(window.innerWidth * 0.8, 300);
+        this.cubeElement.style.width = size + 'px';
+        this.cubeElement.style.height = size + 'px';
     }
 }
 

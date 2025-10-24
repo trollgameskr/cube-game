@@ -87,6 +87,34 @@ body {
     transform: translateY(0);
 }
 
+.btn-small {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.btn-small:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-small:active {
+    transform: translateY(0);
+}
+
+#rotation-controls {
+    margin-top: 10px;
+}
+
 #message {
     position: fixed;
     bottom: 20px;
