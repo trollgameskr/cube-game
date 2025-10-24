@@ -61,7 +61,6 @@ body {
     display: flex;
     gap: 15px;
     justify-content: center;
-    margin-bottom: 20px;
 }
 
 .btn {
@@ -89,6 +88,10 @@ body {
 }
 
 #message {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     text-align: center;
     padding: 15px;
     background: rgba(255, 255, 255, 0.9);
@@ -97,6 +100,8 @@ body {
     font-weight: bold;
     color: #667eea;
     animation: slideUp 0.5s ease;
+    max-width: 90%;
+    z-index: 1000;
 }
 
 #message.hidden {
