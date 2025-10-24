@@ -11,6 +11,7 @@ class CubePuzzleGame {
         this.selectedFace = null;
         this.swipeStart = null;
         this.swipeThreshold = 30;
+        this.moveCount = 0;
         
         this.colors = {
             0: '#FF0000', // Red - Front
@@ -170,7 +171,7 @@ class CubePuzzleGame {
         };
         
         if (moves[face] && moves[face][direction]) {
-            this.executeMove(moves[face][direction]);
+            this.executeMove(moves[face][direction], true); // true = count this move
             this.showMoveIndicator(face, direction);
         }
     }
@@ -199,11 +200,16 @@ class CubePuzzleGame {
         
         for (let i = 0; i < scrambleMoves; i++) {
             const move = moves[Math.floor(Math.random() * moves.length)];
-            this.executeMove(move);
+            this.executeMove(move, false); // false = don't count scramble moves
         }
     }
 
-    executeMove(move) {
+    executeMove(move, countMove = false) {
+        if (countMove) {
+            this.moveCount++;
+            document.getElementById('moves').textContent = this.moveCount;
+        }
+        
         switch(move) {
             case 'U': this.rotateTop(true); break;
             case 'Ui': this.rotateTop(false); break;
@@ -495,6 +501,21 @@ class CubePuzzleGame {
                 cellSize - gap * 2
             );
         }
+        
+        // Draw face label
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        const faceLabels = {
+            'front': 'F',
+            'back': 'B',
+            'left': 'L',
+            'right': 'R',
+            'top': 'U',
+            'bottom': 'D'
+        };
+        this.ctx.fillText(faceLabels[faceName], x + size / 2, y - 10);
     }
 
     draw() {
@@ -532,7 +553,7 @@ class CubePuzzleGame {
 
     onWin() {
         const message = document.getElementById('message');
-        message.textContent = '🎉 축하합니다! 퍼즐을 완성했습니다! 🎉';
+        message.textContent = `🎉 축하합니다! ${this.moveCount}번 만에 퍼즐을 완성했습니다! 🎉`;
         message.classList.remove('hidden');
         message.classList.add('celebrating');
         
@@ -553,6 +574,8 @@ class CubePuzzleGame {
 
     resetCube() {
         this.cube = this.createSolvedCube();
+        this.moveCount = 0;
+        document.getElementById('moves').textContent = '0';
         document.getElementById('message').classList.add('hidden');
         setTimeout(() => this.scrambleCube(), 100);
     }

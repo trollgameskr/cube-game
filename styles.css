@@ -36,6 +36,27 @@ body {
     max-width: 600px;
 }
 
+#instructions {
+    text-align: center;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+#instructions p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+#move-counter {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
 #controls {
     display: flex;
     gap: 15px;
