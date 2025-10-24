@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="3x3 큐브 퍼즐 게임 - 터치로 플레이">
+    <title>3x3 큐브 퍼즐 게임</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="canvas-container"></div>
+        <div id="ui-container">
+            <div id="instructions">
+                <p>💡 <strong>게임 방법:</strong> 각 면을 탭하고 스와이프하여 회전시키세요!</p>
+                <p id="move-counter">이동: <span id="moves">0</span></p>
+            </div>
+            <div id="controls">
+                <button id="reset-btn" class="btn">리셋</button>
+                <button id="hint-btn" class="btn">힌트</button>
+            </div>
+            <div id="message" class="hidden"></div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
