@@ -453,56 +453,133 @@ class CubePuzzleGame {
         }
     }
 
-    async rotateLayerAnimation(cubies, axis, angle) {
-        // Apply rotation to each cubie in the layer
+    async rotateLayerAnimation(cubies, axis, angle, center) {
+        // In a real Rubik's cube, each face rotates around its center cubie
+        // The center cubie stays in place and only rotates
+        // The other 8 cubies rotate around this center point
+        
         cubies.forEach(cubie => {
-            const currentTransform = cubie.element.style.transform;
-            const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
-                           axis === 'y' ? `rotateY(${angle}deg)` :
-                           `rotateZ(${angle}deg)`;
-            cubie.element.style.transform = `${rotation} ${currentTransform}`;
+            const { x, y, z } = cubie.position;
+            
+            // Check if this is the center cubie
+            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
+            
+            if (isCenterCubie) {
+                // Center cubie only rotates in place, doesn't move
+                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
+                               axis === 'y' ? `rotateY(${angle}deg)` :
+                               `rotateZ(${angle}deg)`;
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotation}`;
+            } else {
+                // Other cubies rotate around the center cubie
+                // First translate to center, rotate, then translate back
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const centerX = center.x * (this.cubieSize + this.gap) + offset;
+                const centerY = -center.y * (this.cubieSize + this.gap) - offset;
+                const centerZ = center.z * (this.cubieSize + this.gap) + offset;
+                
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                
+                // Calculate relative position from center
+                const relX = posX - centerX;
+                const relY = posY - centerY;
+                const relZ = posZ - centerZ;
+                
+                // Build transform: translate to center, rotate, translate back
+                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
+                               axis === 'y' ? `rotateY(${angle}deg)` :
+                               `rotateZ(${angle}deg)`;
+                
+                cubie.element.style.transform = 
+                    `translate3d(${centerX}px, ${centerY}px, ${centerZ}px) ` +
+                    `${rotation} ` +
+                    `translate3d(${relX}px, ${relY}px, ${relZ}px)`;
+            }
         });
         
         // Wait for animation to complete
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Update positions and reset transform
-        this.updateCubiePositions(cubies, axis, angle);
+        // Update positions after rotation
+        this.updateCubiePositions(cubies, axis, angle, center);
     }
 
-    updateCubiePositions(cubies, axis, angle) {
+    updateCubiePositions(cubies, axis, angle, center) {
         const radians = (angle * Math.PI) / 180;
         const cos = Math.cos(radians);
         const sin = Math.sin(radians);
         
         cubies.forEach(cubie => {
             let { x, y, z } = cubie.position;
-            let newX = x, newY = y, newZ = z;
             
-            // Apply rotation matrix
-            if (axis === 'y') {
-                // Rotation around Y axis
-                newX = Math.round(x * cos + z * sin);
-                newZ = Math.round(-x * sin + z * cos);
-            } else if (axis === 'x') {
-                // Rotation around X axis  
-                newY = Math.round(y * cos - z * sin);
-                newZ = Math.round(y * sin + z * cos);
-            } else if (axis === 'z') {
-                // Rotation around Z axis
-                newX = Math.round(x * cos - y * sin);
-                newY = Math.round(x * sin + y * cos);
+            // Check if this is the center cubie
+            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
+            
+            if (isCenterCubie) {
+                // Center cubie position never changes, only its rotation
+                // Just update the transform to maintain rotation
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                
+                // Track cumulative rotation for center cubie
+                if (!cubie.centerRotation) {
+                    cubie.centerRotation = { x: 0, y: 0, z: 0 };
+                }
+                if (axis === 'x') cubie.centerRotation.x += angle;
+                if (axis === 'y') cubie.centerRotation.y += angle;
+                if (axis === 'z') cubie.centerRotation.z += angle;
+                
+                const rotX = `rotateX(${cubie.centerRotation.x}deg)`;
+                const rotY = `rotateY(${cubie.centerRotation.y}deg)`;
+                const rotZ = `rotateZ(${cubie.centerRotation.z}deg)`;
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotX} ${rotY} ${rotZ}`;
+            } else {
+                // For other cubies, calculate new position relative to center
+                // Translate position relative to center
+                const relX = x - center.x;
+                const relY = y - center.y;
+                const relZ = z - center.z;
+                
+                let newRelX = relX, newRelY = relY, newRelZ = relZ;
+                
+                // Apply rotation matrix around center
+                if (axis === 'y') {
+                    // Rotation around Y axis
+                    newRelX = Math.round(relX * cos + relZ * sin);
+                    newRelZ = Math.round(-relX * sin + relZ * cos);
+                } else if (axis === 'x') {
+                    // Rotation around X axis  
+                    newRelY = Math.round(relY * cos - relZ * sin);
+                    newRelZ = Math.round(relY * sin + relZ * cos);
+                } else if (axis === 'z') {
+                    // Rotation around Z axis
+                    newRelX = Math.round(relX * cos - relY * sin);
+                    newRelY = Math.round(relX * sin + relY * cos);
+                }
+                
+                // Calculate new absolute position
+                const newX = center.x + newRelX;
+                const newY = center.y + newRelY;
+                const newZ = center.z + newRelZ;
+                
+                cubie.position = { x: newX, y: newY, z: newZ };
+                
+                // Update visual position
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = newX * (this.cubieSize + this.gap) + offset;
+                const posY = -newY * (this.cubieSize + this.gap) - offset;
+                const posZ = newZ * (this.cubieSize + this.gap) + offset;
+                
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
             }
-            
-            cubie.position = { x: newX, y: newY, z: newZ };
-            
-            // Update visual position
-            const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-            const posX = newX * (this.cubieSize + this.gap) + offset;
-            const posY = -newY * (this.cubieSize + this.gap) - offset;
-            const posZ = newZ * (this.cubieSize + this.gap) + offset;
-            
-            cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
         });
     }
 
@@ -512,8 +589,11 @@ class CubePuzzleGame {
         // Get cubies on top layer (y = 0)
         const layerCubies = this.cubies.filter(c => c.position.y === 0);
         
-        // Animate rotation
-        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? -90 : 90);
+        // Top face center is at (1, 0, 1)
+        const center = { x: 1, y: 0, z: 1 };
+        
+        // Animate rotation around center
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? -90 : 90, center);
         
         // Update color state
         const temp = [this.cube.front[0], this.cube.front[1], this.cube.front[2]];
@@ -558,7 +638,11 @@ class CubePuzzleGame {
         this.rotateFace(this.cube.bottom, clockwise);
         
         const layerCubies = this.cubies.filter(c => c.position.y === 2);
-        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? 90 : -90);
+        
+        // Bottom face center is at (1, 2, 1)
+        const center = { x: 1, y: 2, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? 90 : -90, center);
         
         const temp = [this.cube.front[6], this.cube.front[7], this.cube.front[8]];
         if (clockwise) {
@@ -602,7 +686,11 @@ class CubePuzzleGame {
         this.rotateFace(this.cube.front, clockwise);
         
         const layerCubies = this.cubies.filter(c => c.position.z === 2);
-        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? -90 : 90);
+        
+        // Front face center is at (1, 1, 2)
+        const center = { x: 1, y: 1, z: 2 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? -90 : 90, center);
         
         const temp = [this.cube.top[6], this.cube.top[7], this.cube.top[8]];
         if (clockwise) {
@@ -646,7 +734,11 @@ class CubePuzzleGame {
         this.rotateFace(this.cube.back, clockwise);
         
         const layerCubies = this.cubies.filter(c => c.position.z === 0);
-        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? 90 : -90);
+        
+        // Back face center is at (1, 1, 0)
+        const center = { x: 1, y: 1, z: 0 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? 90 : -90, center);
         
         const temp = [this.cube.top[0], this.cube.top[1], this.cube.top[2]];
         if (clockwise) {
@@ -690,7 +782,11 @@ class CubePuzzleGame {
         this.rotateFace(this.cube.left, clockwise);
         
         const layerCubies = this.cubies.filter(c => c.position.x === 0);
-        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? 90 : -90);
+        
+        // Left face center is at (0, 1, 1)
+        const center = { x: 0, y: 1, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? 90 : -90, center);
         
         const temp = [this.cube.top[0], this.cube.top[3], this.cube.top[6]];
         if (clockwise) {
@@ -734,7 +830,11 @@ class CubePuzzleGame {
         this.rotateFace(this.cube.right, clockwise);
         
         const layerCubies = this.cubies.filter(c => c.position.x === 2);
-        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? -90 : 90);
+        
+        // Right face center is at (2, 1, 1)
+        const center = { x: 2, y: 1, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? -90 : 90, center);
         
         const temp = [this.cube.top[2], this.cube.top[5], this.cube.top[8]];
         if (clockwise) {
