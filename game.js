@@ -235,6 +235,15 @@ class CubePuzzleGame {
                 if (z === 2) return 'Fi';       // Front layer (inverse)
                 if (z === 0) return 'B';        // Back layer
             }
+        } else {
+            // Vertical drag fallback
+            if (deltaY > 0) {
+                if (z === 2) return 'F';        // Front layer
+                if (z === 0) return 'B';        // Back layer
+            } else {
+                if (z === 2) return 'Fi';       // Front layer (inverse)
+                if (z === 0) return 'Bi';       // Back layer (inverse)
+            }
         }
         
         return null;
