@@ -13,6 +13,7 @@
 	const scrambleBtn = document.getElementById('scramble-btn');
 	const resetBtn = document.getElementById('reset-btn');
 	const hintBtn = document.getElementById('hint-btn');
+	const guideBtn = document.getElementById('guide-btn');
 	const focusBtn = document.getElementById('focus-btn');
 	const focusExitBtn = document.getElementById('focus-exit-btn');
 	const customizeKeysBtn = document.getElementById('customize-keys-btn');
@@ -20,6 +21,10 @@
 	const closeModalBtn = document.getElementById('close-modal-btn');
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
+
+	// Guide modal elements
+	const guideModal = document.getElementById('guide-modal');
+	const closeGuideModalBtn = document.getElementById('close-guide-modal-btn');
 
 	// Victory modal elements
 	const victoryModal = document.getElementById('victory-modal');
@@ -332,6 +337,14 @@
 		removeKeyListeners();
 	}
 
+	function openGuideModal() {
+		guideModal.style.display = 'flex';
+	}
+
+	function closeGuideModal() {
+		guideModal.style.display = 'none';
+	}
+
 	function formatKeyCode(code) {
 		// Convert KeyU to U, KeyT to T, etc.
 		if (code.startsWith('Key')) {
@@ -501,6 +514,22 @@
 		keyboardModal?.addEventListener('click', (event) => {
 			if (event.target === keyboardModal) {
 				closeKeyboardModal();
+			}
+		});
+
+		// Guide modal event listeners
+		guideBtn?.addEventListener('click', () => {
+			openGuideModal();
+		});
+
+		closeGuideModalBtn?.addEventListener('click', () => {
+			closeGuideModal();
+		});
+
+		// Close guide modal on background click
+		guideModal?.addEventListener('click', (event) => {
+			if (event.target === guideModal) {
+				closeGuideModal();
 			}
 		});
 	}

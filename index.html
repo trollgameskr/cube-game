@@ -36,6 +36,7 @@
                     <button type="button" id="scramble-btn" class="btn primary">섞기</button>
                     <button type="button" id="reset-btn" class="btn">리셋</button>
                     <button type="button" id="hint-btn" class="btn">힌트</button>
+                    <button type="button" id="guide-btn" class="btn">가이드</button>
                     <button type="button" id="focus-btn" class="btn">집중 모드</button>
                 </div>
 
@@ -151,6 +152,239 @@
                 <div class="modal-actions">
                     <button type="button" id="skip-leaderboard-btn" class="btn">건너뛰기</button>
                     <button type="button" id="save-score-btn" class="btn primary">기록 저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guide Modal -->
+    <div id="guide-modal" class="modal" style="display: none;">
+        <div class="modal-content guide-modal-content">
+            <div class="modal-header">
+                <h2>🧩 큐브 맞추기 단계별 가이드</h2>
+                <button type="button" id="close-guide-modal-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body guide-modal-body">
+                <div class="guide-intro">
+                    <p>3x3 큐브를 맞추는 방법을 단계별로 안내합니다. 초보자도 따라할 수 있도록 쉽게 설명되어 있습니다.</p>
+                    <p class="guide-note"><strong>참고:</strong> 이 가이드는 초보자용 레이어 방법(Layer by Layer)을 사용합니다.</p>
+                </div>
+
+                <div class="guide-section">
+                    <h3>📋 기본 개념</h3>
+                    <div class="guide-content">
+                        <h4>면 표기법</h4>
+                        <ul>
+                            <li><strong>U (Up)</strong>: 위 면</li>
+                            <li><strong>D (Down)</strong>: 아래 면</li>
+                            <li><strong>L (Left)</strong>: 왼쪽 면</li>
+                            <li><strong>R (Right)</strong>: 오른쪽 면</li>
+                            <li><strong>F (Front)</strong>: 앞 면</li>
+                            <li><strong>B (Back)</strong>: 뒤 면</li>
+                        </ul>
+                        <h4>회전 표기법</h4>
+                        <ul>
+                            <li><strong>U</strong>: 위 면을 시계 방향으로 90도 회전</li>
+                            <li><strong>U'</strong>: 위 면을 반시계 방향으로 90도 회전 (Shift+U)</li>
+                            <li><strong>U2</strong>: 위 면을 180도 회전 (U를 두 번)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>1단계: 흰색 십자가 만들기</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 위쪽 면(흰색)에 십자가 모양을 만들고, 옆면의 색도 맞춥니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>흰색 모서리 조각을 찾습니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p>각 흰색 모서리를 위쪽으로 이동시킵니다.</p>
+                                    <p class="algorithm">예: F, R, U 등의 조합 사용</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">3</span>
+                                <div class="step-content">
+                                    <p>옆면의 색이 맞도록 조정합니다.</p>
+                                    <p class="algorithm">팁: U 면을 회전하여 위치 조정</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>2단계: 흰색 모서리 맞추기</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 첫 번째 층을 완성합니다 (흰색 면 전체).</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>흰색 모서리 조각을 아래층에서 찾습니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p>모서리 조각을 알맞은 위치 아래로 이동합니다.</p>
+                                    <p class="algorithm">기본 공식: R U R' U'</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">3</span>
+                                <div class="step-content">
+                                    <p>모든 4개의 모서리를 반복합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>3단계: 중간층 맞추기</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 두 번째 층의 모서리를 맞춥니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>위쪽 층에서 노란색이 없는 모서리를 찾습니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p><strong>왼쪽으로 이동:</strong></p>
+                                    <p class="algorithm">U' L' U L U F U' F'</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">3</span>
+                                <div class="step-content">
+                                    <p><strong>오른쪽으로 이동:</strong></p>
+                                    <p class="algorithm">U R U' R' U' F' U F</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>4단계: 노란색 십자가 만들기</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 위쪽 면(현재 노란색)에 십자가를 만듭니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>현재 패턴을 확인합니다 (점, L자, 선 또는 십자).</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p><strong>기본 공식:</strong></p>
+                                    <p class="algorithm">F R U R' U' F'</p>
+                                    <p>필요에 따라 1~3번 반복</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>5단계: 노란색 면 완성</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 노란색 면 전체를 완성합니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>노란색 모서리의 위치를 확인합니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p><strong>공식:</strong></p>
+                                    <p class="algorithm">R U R' U R U2 R'</p>
+                                    <p>모든 모서리가 노란색이 될 때까지 반복</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>6단계: 모서리 위치 맞추기</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 마지막 층의 모서리를 올바른 위치에 배치합니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>올바른 위치의 모서리를 찾습니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p><strong>공식:</strong></p>
+                                    <p class="algorithm">U R U' L' U R' U' L</p>
+                                    <p>필요에 따라 반복</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>7단계: 마지막 층 완성</h3>
+                    <div class="guide-content">
+                        <p><strong>목표:</strong> 모든 모서리를 올바른 방향으로 돌려 큐브를 완성합니다.</p>
+                        <div class="guide-steps">
+                            <div class="guide-step">
+                                <span class="step-number">1</span>
+                                <div class="step-content">
+                                    <p>완성된 면이 앞쪽을 향하도록 큐브를 잡습니다.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">2</span>
+                                <div class="step-content">
+                                    <p><strong>시계 방향 회전:</strong></p>
+                                    <p class="algorithm">R' D' R D (반복)</p>
+                                </div>
+                            </div>
+                            <div class="guide-step">
+                                <span class="step-number">3</span>
+                                <div class="step-content">
+                                    <p>각 모서리가 맞을 때까지 반복합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <h3>💡 추가 팁</h3>
+                    <div class="guide-content">
+                        <ul>
+                            <li>천천히 시작하세요. 처음에는 한 단계씩 완벽하게 익히는 것이 중요합니다.</li>
+                            <li>공식을 외우기보다는 이해하려고 노력하세요.</li>
+                            <li>매일 조금씩 연습하면 빠르게 실력이 늘어납니다.</li>
+                            <li>온라인 비디오 튜토리얼과 함께 보면 더 도움이 됩니다.</li>
+                            <li>이 게임에서 직접 공식을 연습해보세요!</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
