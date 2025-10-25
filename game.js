@@ -591,6 +591,28 @@
 		const dominantTangent = dominantIndex === 0 ? tangentA : tangentB;
 		const dominantSign = alignment[dominantIndex].sign || 1;
 
+		// For front face (z-axis, layer=1), rotate adjacent faces instead
+		let finalAxis = axisName;
+		let finalLayer = layer;
+		
+		if (axisName === 'z' && layer === 1) {
+			// Determine which adjacent axis to use based on dominant tangent
+			// tangentA and tangentB are perpendicular to the front face normal
+			const absX = Math.abs(dominantTangent.x);
+			const absY = Math.abs(dominantTangent.y);
+			
+			if (absX > absY) {
+				// Horizontal drag → rotate left/right face (x-axis)
+				finalAxis = 'x';
+				finalLayer = dominantTangent.x > 0 ? 1 : -1;
+			} else {
+				// Vertical drag → rotate up/down face (y-axis)
+				finalAxis = 'y';
+				finalLayer = dominantTangent.y > 0 ? 1 : -1;
+			}
+		}
+
+		const finalAxisVector = AXIS_VECTORS[finalAxis];
 		const samplePoint = point.clone().add(dominantTangent.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
 		const screenStart = projectPointToScreen(samplePoint);
@@ -600,7 +622,7 @@
 		const normalizedDrag = dragVec.clone().normalize();
 
 		for (const sign of [1, -1]) {
-			const rotatedPoint = rotatePointAroundAxis(samplePoint, axisVector, sign * baseAngle);
+			const rotatedPoint = rotatePointAroundAxis(samplePoint, finalAxisVector, sign * baseAngle);
 			const rotatedScreen = projectPointToScreen(rotatedPoint);
 			const predicted = rotatedScreen.sub(screenStart);
 			if (predicted.lengthSq() === 0) {
@@ -618,11 +640,11 @@
 			bestSign = dominantSign;
 		}
 
-		const direction = deriveDirectionFromAngleSign(bestSign, layer);
+		const direction = deriveDirectionFromAngleSign(bestSign, finalLayer);
 
 		return {
-			axis: axisName,
-			layer,
+			axis: finalAxis,
+			layer: finalLayer,
 			direction
 		};
 	}
