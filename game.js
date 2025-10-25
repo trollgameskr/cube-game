@@ -523,6 +523,9 @@
 			if (event.code === 'Escape') {
 				event.preventDefault();
 				toggleFocusMode();
+				return;
+			}
+			
 			// Check for transparency toggle
 			if (event.code === keyboardSettings.toggleTransparency) {
 				event.preventDefault();
