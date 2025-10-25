@@ -605,23 +605,15 @@
 			backViewBtn.addEventListener('touchcancel', deactivateBackView, { passive: false });
 
 			// Global event listeners to handle cases where mouse/touch is released outside the button
-			window.addEventListener('mouseup', () => {
+			const handleGlobalRelease = () => {
 				if (isBackViewButtonPressed) {
 					deactivateBackView();
 				}
-			});
+			};
 
-			window.addEventListener('touchend', () => {
-				if (isBackViewButtonPressed) {
-					deactivateBackView();
-				}
-			});
-
-			window.addEventListener('touchcancel', () => {
-				if (isBackViewButtonPressed) {
-					deactivateBackView();
-				}
-			});
+			window.addEventListener('mouseup', handleGlobalRelease);
+			window.addEventListener('touchend', handleGlobalRelease);
+			window.addEventListener('touchcancel', handleGlobalRelease);
 		}
 	}
 
