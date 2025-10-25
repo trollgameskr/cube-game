@@ -19,6 +19,7 @@ class CubePuzzleGame {
         this.previousMousePosition = { x: 0, y: 0 };
         this.initialTouchDistance = 0;
         this.panOffset = { x: 0, y: 0 };
+        this.draggedLayer = null;
         
         this.colors = {
             0: '#FF0000', // Red - Front (z=2)
@@ -53,7 +54,6 @@ class CubePuzzleGame {
             height: 300px;
             transform-style: preserve-3d;
             margin: 0 auto;
-            transition: transform 0.1s ease-out;
         `;
         
         this.container.appendChild(this.cubeElement);
@@ -255,9 +255,6 @@ class CubePuzzleGame {
 
     setupControls() {
         let touchCount = 0;
-        let draggedLayer = null;
-        let touch1Start = null;
-        let touch2Start = null;
         
         const getTouchDistance = (touch1, touch2) => {
             const dx = touch1.clientX - touch2.clientX;
@@ -282,8 +279,6 @@ class CubePuzzleGame {
                     // Two finger touch - pan movement
                     this.isPanning = true;
                     this.isDraggingView = false;
-                    touch1Start = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    touch2Start = { x: e.touches[1].clientX, y: e.touches[1].clientY };
                     this.initialTouchDistance = getTouchDistance(e.touches[0], e.touches[1]);
                     const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
                     this.previousMousePosition = midpoint;
@@ -306,7 +301,7 @@ class CubePuzzleGame {
                 // Touching a cubie - prepare for layer rotation
                 this.touchStartPos = { x: clientX, y: clientY };
                 this.touchStartCubie = clickedCubie;
-                draggedLayer = null;
+                this.draggedLayer = null;
                 this.isDraggingView = false;
             } else {
                 // Empty space - prepare for camera rotation
@@ -349,15 +344,13 @@ class CubePuzzleGame {
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
             // Check if we should do layer rotation (cubie dragged) or view rotation (empty space dragged)
-            if (this.touchStartCubie && distance > 30 && !draggedLayer) {
+            if (this.touchStartCubie && distance > 30 && !this.draggedLayer) {
                 // Dragging a cubie - rotate the layer
                 e.preventDefault();
                 const move = this.determineLayerMove(this.touchStartCubie, deltaX, deltaY);
                 if (move) {
-                    draggedLayer = move;
+                    this.draggedLayer = move;
                     this.executeMove(move, true);
-                    // Clear the touch cubie so we don't trigger again
-                    this.touchStartCubie = null;
                 }
             } else if (!this.touchStartCubie && this.isDraggingView && distance > 5) {
                 // Dragging empty space - rotate camera
@@ -374,10 +367,8 @@ class CubePuzzleGame {
             this.isPanning = false;
             this.touchStartPos = null;
             this.touchStartCubie = null;
-            draggedLayer = null;
+            this.draggedLayer = null;
             touchCount = 0;
-            touch1Start = null;
-            touch2Start = null;
         };
 
         this.container.addEventListener('mousedown', onPointerDown);
