@@ -792,7 +792,7 @@
 		gestureState.lastDistance = distance;
 
 		// Handle rotation gesture
-		if (gestureState.lastAngle !== null) {
+		if (gestureState.lastAngle !== undefined) {
 			let angleDelta = angle - gestureState.lastAngle;
 			
 			// Normalize angle difference to [-PI, PI]
@@ -803,6 +803,8 @@
 			if (Math.abs(angleDelta) > 0.01) {
 				// Rotate camera around the viewing axis (theta rotation)
 				orbitState.theta += angleDelta;
+				// Normalize theta to prevent overflow
+				orbitState.theta = orbitState.theta % (2 * Math.PI);
 				updateCameraPosition();
 			}
 		}
