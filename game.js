@@ -708,10 +708,11 @@
 			}
 
 			let mapped;
+			let logicalFace;
 			
 			if (keyboardSettings.cameraRelativeMode) {
 				// Camera-relative mode: map based on camera orientation
-				const logicalFace = logicalKeyMap[event.code];
+				logicalFace = logicalKeyMap[event.code];
 				if (!logicalFace) {
 					return;
 				}
@@ -736,7 +737,21 @@
 				}
 			}
 
-			const direction = event.shiftKey ? -1 : 1;
+			// Calculate direction
+			let direction = event.shiftKey ? -1 : 1;
+			
+			// In camera-relative mode, adjust direction for more intuitive rotations
+			// R (right): rotate right-to-left (away from camera on right side)
+			// L (left): rotate left-to-right (toward camera on left side)  
+			// U (up): rotate top-to-bottom (away from camera on top)
+			// D (down): rotate bottom-to-top (toward camera on bottom)
+			if (keyboardSettings.cameraRelativeMode && logicalFace) {
+				if (logicalFace === 'R' || logicalFace === 'U') {
+					// Invert direction for right and up faces for natural camera-relative rotation
+					direction = -direction;
+				}
+			}
+			
 			enqueueMove({
 				axis: mapped.axis,
 				layer: mapped.layer,
