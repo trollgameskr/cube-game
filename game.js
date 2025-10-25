@@ -13,6 +13,8 @@
 	const scrambleBtn = document.getElementById('scramble-btn');
 	const resetBtn = document.getElementById('reset-btn');
 	const hintBtn = document.getElementById('hint-btn');
+	const focusBtn = document.getElementById('focus-btn');
+	const focusExitBtn = document.getElementById('focus-exit-btn');
 
 	if (!stageEl || !moveCountEl || !moveLogEl || !messageEl) {
 		console.error('Required DOM elements are missing.');
@@ -296,6 +298,14 @@
 				}
 			});
 		});
+
+		focusBtn?.addEventListener('click', () => {
+			toggleFocusMode();
+		});
+
+		focusExitBtn?.addEventListener('click', () => {
+			toggleFocusMode();
+		});
 	}
 
 	function bindKeyboardShortcuts() {
@@ -315,6 +325,12 @@
 
 			if (event.code === 'Space') {
 				highlightMessage();
+				return;
+			}
+
+			if (event.code === 'Escape') {
+				event.preventDefault();
+				toggleFocusMode();
 				return;
 			}
 
@@ -1007,5 +1023,23 @@
 		renderer.setSize(width, height, false);
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
+	}
+
+	function toggleFocusMode() {
+		document.body.classList.toggle('focus-mode');
+		const isFocusMode = document.body.classList.contains('focus-mode');
+		
+		if (isFocusMode) {
+			// Entering focus mode
+			focusBtn.textContent = '집중 모드 종료';
+		} else {
+			// Exiting focus mode
+			focusBtn.textContent = '집중 모드';
+		}
+		
+		// Trigger resize to adjust canvas
+		setTimeout(() => {
+			onResize();
+		}, 100);
 	}
 })();
