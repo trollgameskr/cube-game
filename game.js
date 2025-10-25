@@ -13,6 +13,8 @@
 	const scrambleBtn = document.getElementById('scramble-btn');
 	const resetBtn = document.getElementById('reset-btn');
 	const hintBtn = document.getElementById('hint-btn');
+	const focusBtn = document.getElementById('focus-btn');
+	const focusExitBtn = document.getElementById('focus-exit-btn');
 	const customizeKeysBtn = document.getElementById('customize-keys-btn');
 	const keyboardModal = document.getElementById('keyboard-modal');
 	const closeModalBtn = document.getElementById('close-modal-btn');
@@ -444,6 +446,13 @@
 			});
 		});
 
+		focusBtn?.addEventListener('click', () => {
+			toggleFocusMode();
+		});
+
+		focusExitBtn?.addEventListener('click', () => {
+			toggleFocusMode();
+		});
 		customizeKeysBtn?.addEventListener('click', () => {
 			openKeyboardModal();
 		});
@@ -511,6 +520,9 @@
 				return;
 			}
 
+			if (event.code === 'Escape') {
+				event.preventDefault();
+				toggleFocusMode();
 			// Check for transparency toggle
 			if (event.code === keyboardSettings.toggleTransparency) {
 				event.preventDefault();
@@ -1233,5 +1245,25 @@
 		renderer.setSize(width, height, false);
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
+	}
+
+	function toggleFocusMode() {
+		document.body.classList.toggle('focus-mode');
+		const isFocusMode = document.body.classList.contains('focus-mode');
+		
+		if (focusBtn) {
+			if (isFocusMode) {
+				// Entering focus mode
+				focusBtn.textContent = '집중 모드 종료';
+			} else {
+				// Exiting focus mode
+				focusBtn.textContent = '집중 모드';
+			}
+		}
+		
+		// Trigger resize to adjust canvas
+		setTimeout(() => {
+			onResize();
+		}, 100);
 	}
 })();
