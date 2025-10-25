@@ -39,7 +39,8 @@
 
                 <div class="hotkeys">
                     <h3>단축키 안내</h3>
-                    <p>U, D, L, R, F, B 키로 면 회전 • Shift+키는 반시계 방향 • Space로 최근 메시지 확인</p>
+                    <p>U, D, L, R, F, B 키로 면 회전 • Shift+키는 반시계 방향 • Space로 최근 메시지 확인 • T로 투명도 토글</p>
+                    <button type="button" id="customize-keys-btn" class="btn btn-small">단축키 커스터마이징</button>
                 </div>
             </section>
         </main>
@@ -48,6 +49,61 @@
             <small>정적 파일만으로 동작하므로 GitHub Pages에 바로 배포할 수 있습니다.</small>
         </footer>
     </div>
+
+    <!-- Keyboard Customization Modal -->
+    <div id="keyboard-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>단축키 커스터마이징</h2>
+                <button type="button" id="close-modal-btn" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-instruction">각 기능에 원하는 키를 할당하려면 입력 필드를 클릭하고 키를 누르세요.</p>
+                <div class="key-mapping-list">
+                    <div class="key-mapping-item">
+                        <label>위(Up) 면 회전:</label>
+                        <input type="text" id="key-U" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="U"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>아래(Down) 면 회전:</label>
+                        <input type="text" id="key-D" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="D"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>왼쪽(Left) 면 회전:</label>
+                        <input type="text" id="key-L" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="L"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>오른쪽(Right) 면 회전:</label>
+                        <input type="text" id="key-R" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="R"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>앞(Front) 면 회전:</label>
+                        <input type="text" id="key-F" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="F"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>뒤(Back) 면 회전:</label>
+                        <input type="text" id="key-B" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="B"></span>
+                    </div>
+                    <div class="key-mapping-item">
+                        <label>투명도 토글:</label>
+                        <input type="text" id="key-toggleTransparency" readonly placeholder="키를 누르세요">
+                        <span class="key-display" data-key="toggleTransparency"></span>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="reset-keys-btn" class="btn">기본값으로 초기화</button>
+                    <button type="button" id="save-keys-btn" class="btn primary">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="lib/three-global.js"></script>
     <script src="game.js" defer></script>
 </body>
