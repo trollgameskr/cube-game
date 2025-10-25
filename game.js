@@ -97,7 +97,8 @@
 		R: 'KeyR',
 		F: 'KeyF',
 		B: 'KeyB',
-		toggleTransparency: 'KeyT'
+		toggleTransparency: 'KeyT',
+		cameraRelativeMode: true  // true = camera-relative, false = fixed-axis
 	};
 
 	const keyboardSettings = loadKeyboardSettings();
@@ -318,6 +319,9 @@
 	function openKeyboardModal() {
 		// Populate current settings
 		Object.keys(keyboardSettings).forEach((key) => {
+			// Skip non-key settings
+			if (key === 'cameraRelativeMode') return;
+			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
 			if (input) {
@@ -327,6 +331,12 @@
 				display.textContent = formatKeyCode(keyboardSettings[key]);
 			}
 		});
+
+		// Set camera relative mode checkbox
+		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+		if (cameraRelativeCheckbox) {
+			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
 
 		keyboardModal.style.display = 'flex';
 		setupKeyListeners();
@@ -413,6 +423,9 @@
 
 	function refreshModalDisplay() {
 		Object.keys(keyboardSettings).forEach((key) => {
+			// Skip non-key settings
+			if (key === 'cameraRelativeMode') return;
+			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
 			if (input) {
@@ -422,6 +435,12 @@
 				display.textContent = formatKeyCode(keyboardSettings[key]);
 			}
 		});
+		
+		// Update camera relative mode checkbox
+		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+		if (cameraRelativeCheckbox) {
+			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
 	}
 
 	function resetKeyboardSettings() {
@@ -501,6 +520,12 @@
 		});
 
 		saveKeysBtn?.addEventListener('click', () => {
+			// Save camera relative mode checkbox state
+			const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+			if (cameraRelativeCheckbox) {
+				keyboardSettings.cameraRelativeMode = cameraRelativeCheckbox.checked;
+			}
+			
 			saveKeyboardSettings();
 			closeKeyboardModal();
 			setMessage('단축키 설정이 저장되었습니다.');
@@ -574,15 +599,81 @@
 		setMessage(state.isBackFaceView ? '뒷면 보기 모드가 활성화되었습니다.' : '앞면 보기 모드로 변경되었습니다.');
 	}
 
+	/**
+	 * Helper function to determine which cube axis is most aligned with a given vector
+	 * @param {THREE.Vector3} vector - The vector to analyze
+	 * @returns {{ axis: string, layer: number }} - The dominant axis name and layer (1 or -1)
+	 */
+	function getDominantAxisAndLayer(vector) {
+		const absX = Math.abs(vector.x);
+		const absY = Math.abs(vector.y);
+		const absZ = Math.abs(vector.z);
+		
+		if (absX >= absY && absX >= absZ) {
+			return { axis: 'x', layer: vector.x > 0 ? 1 : -1 };
+		} else if (absY >= absX && absY >= absZ) {
+			return { axis: 'y', layer: vector.y > 0 ? 1 : -1 };
+		} else {
+			return { axis: 'z', layer: vector.z > 0 ? 1 : -1 };
+		}
+	}
+
+	/**
+	 * Determines which cube face is most visible to the camera and returns
+	 * a transformation matrix to map keyboard inputs to camera-relative moves.
+	 */
+	function getCameraRelativeFaceMapping() {
+		// Get camera direction (from camera to cube center)
+		const cameraDir = new THREE.Vector3();
+		cameraDir.subVectors(cameraTarget, camera.position).normalize();
+		
+		// Get camera up and right vectors
+		const cameraUp = camera.up.clone().normalize();
+		const cameraRight = new THREE.Vector3().crossVectors(cameraDir, cameraUp).normalize();
+		// Recalculate up to ensure orthogonality
+		const cameraUpCorrected = new THREE.Vector3().crossVectors(cameraRight, cameraDir).normalize();
+		
+		// Map logical directions to actual cube axes based on camera view
+		// The face the camera is looking at most directly becomes "Front" (F)
+		// The opposite becomes "Back" (B)
+		// The top of the screen becomes "Up" (U)
+		// The bottom becomes "Down" (D)
+		// The right side becomes "Right" (R)
+		// The left side becomes "Left" (L)
+		
+		// Determine which cube axes are most aligned with camera directions
+		const front = getDominantAxisAndLayer(cameraDir);
+		const up = getDominantAxisAndLayer(cameraUpCorrected);
+		const right = getDominantAxisAndLayer(cameraRight);
+		
+		return {
+			F: { axis: front.axis, layer: front.layer },      // Front (face camera is looking at)
+			B: { axis: front.axis, layer: -front.layer },     // Back (opposite of front)
+			U: { axis: up.axis, layer: up.layer },            // Up (top of screen)
+			D: { axis: up.axis, layer: -up.layer },           // Down (bottom of screen)
+			R: { axis: right.axis, layer: right.layer },      // Right (right side of screen)
+			L: { axis: right.axis, layer: -right.layer }      // Left (left side of screen)
+		};
+	}
+
 	function bindKeyboardShortcuts() {
-		// Build key map from settings
-		const keyMap = {};
-		keyMap[keyboardSettings.U] = { axis: 'y', layer: 1 };
-		keyMap[keyboardSettings.D] = { axis: 'y', layer: -1 };
-		keyMap[keyboardSettings.L] = { axis: 'x', layer: -1 };
-		keyMap[keyboardSettings.R] = { axis: 'x', layer: 1 };
-		keyMap[keyboardSettings.F] = { axis: 'z', layer: 1 };
-		keyMap[keyboardSettings.B] = { axis: 'z', layer: -1 };
+		// Build key map from settings (logical mapping for camera-relative mode)
+		const logicalKeyMap = {};
+		logicalKeyMap[keyboardSettings.U] = 'U';
+		logicalKeyMap[keyboardSettings.D] = 'D';
+		logicalKeyMap[keyboardSettings.L] = 'L';
+		logicalKeyMap[keyboardSettings.R] = 'R';
+		logicalKeyMap[keyboardSettings.F] = 'F';
+		logicalKeyMap[keyboardSettings.B] = 'B';
+
+		// Fixed-axis mapping (original mode)
+		const fixedAxisKeyMap = {};
+		fixedAxisKeyMap[keyboardSettings.U] = { axis: 'y', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.D] = { axis: 'y', layer: -1 };
+		fixedAxisKeyMap[keyboardSettings.L] = { axis: 'x', layer: -1 };
+		fixedAxisKeyMap[keyboardSettings.R] = { axis: 'x', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.F] = { axis: 'z', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.B] = { axis: 'z', layer: -1 };
 
 		window.addEventListener('keydown', (event) => {
 			if (event.repeat) {
@@ -607,14 +698,33 @@
 				return;
 			}
 
-			const mapped = keyMap[event.code];
-			if (!mapped) {
-				return;
-			}
+			let mapped;
+			
+			if (keyboardSettings.cameraRelativeMode) {
+				// Camera-relative mode: map based on camera orientation
+				const logicalFace = logicalKeyMap[event.code];
+				if (!logicalFace) {
+					return;
+				}
 
-			event.preventDefault();
-			if (state.isRotating) {
-				return;
+				event.preventDefault();
+				if (state.isRotating) {
+					return;
+				}
+
+				const faceMapping = getCameraRelativeFaceMapping();
+				mapped = faceMapping[logicalFace];
+			} else {
+				// Fixed-axis mode: use original fixed mapping
+				mapped = fixedAxisKeyMap[event.code];
+				if (!mapped) {
+					return;
+				}
+
+				event.preventDefault();
+				if (state.isRotating) {
+					return;
+				}
 			}
 
 			const direction = event.shiftKey ? -1 : 1;
