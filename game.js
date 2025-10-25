@@ -174,11 +174,77 @@ class CubePuzzleGame {
         this.cubeElement.style.transform = `rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg)`;
     }
 
+    getCubieAtPoint(clientX, clientY) {
+        // Use document.elementFromPoint to find which cubie was clicked
+        const element = document.elementFromPoint(clientX, clientY);
+        if (!element) return null;
+        
+        // Find the cubie element (either the element itself or a parent)
+        let cubieElement = element;
+        while (cubieElement && !cubieElement.classList.contains('cubie')) {
+            cubieElement = cubieElement.parentElement;
+            if (cubieElement === this.cubeElement || !cubieElement) break;
+        }
+        
+        if (!cubieElement || !cubieElement.classList.contains('cubie')) return null;
+        
+        // Find the cubie object
+        return this.cubies.find(c => c.element === cubieElement);
+    }
+
+    determineLayerMove(cubie, deltaX, deltaY) {
+        // Determine which layer to rotate based on cubie position and drag direction
+        const { x, y, z } = cubie.position;
+        
+        // Determine primary drag direction
+        const isDragHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+        
+        // Based on cube orientation and drag direction, determine the move
+        // Simplified: we'll map common drag patterns to moves
+        // This is a basic implementation - could be enhanced with view rotation awareness
+        
+        if (isDragHorizontal) {
+            // Horizontal drag
+            if (deltaX > 0) {
+                // Drag right
+                if (y === 0) return 'U';
+                if (y === 2) return 'Di';
+                if (z === 2) return 'F';
+                if (z === 0) return 'Bi';
+            } else {
+                // Drag left
+                if (y === 0) return 'Ui';
+                if (y === 2) return 'D';
+                if (z === 2) return 'Fi';
+                if (z === 0) return 'B';
+            }
+        } else {
+            // Vertical drag
+            if (deltaY > 0) {
+                // Drag down
+                if (x === 0) return 'L';
+                if (x === 2) return 'Ri';
+                if (z === 2) return 'Fi';
+                if (z === 0) return 'B';
+            } else {
+                // Drag up
+                if (x === 0) return 'Li';
+                if (x === 2) return 'R';
+                if (z === 2) return 'F';
+                if (z === 0) return 'Bi';
+            }
+        }
+        
+        return null;
+    }
+
     setupControls() {
         let touchCount = 0;
-        let initialDistance = 0;
+        let draggedLayer = null;
         
         const onPointerDown = (e) => {
+            if (this.isAnimating) return;
+            
             if (e.touches) {
                 touchCount = e.touches.length;
                 if (touchCount === 2) {
@@ -195,8 +261,19 @@ class CubePuzzleGame {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             
-            this.touchStartPos = { x: clientX, y: clientY };
-            this.previousMousePosition = { x: clientX, y: clientY };
+            // Check if clicking on a cubie for layer rotation
+            const clickedCubie = this.getCubieAtPoint(clientX, clientY);
+            if (clickedCubie && e.touches) {
+                // Mobile: touching a cubie means layer rotation
+                this.touchStartPos = { x: clientX, y: clientY };
+                this.touchStartCubie = clickedCubie;
+                draggedLayer = null;
+            } else {
+                // Desktop or no cubie: view rotation
+                this.touchStartPos = { x: clientX, y: clientY };
+                this.touchStartCubie = null;
+                this.previousMousePosition = { x: clientX, y: clientY };
+            }
         };
 
         const onPointerMove = (e) => {
@@ -227,8 +304,17 @@ class CubePuzzleGame {
             const deltaY = clientY - this.touchStartPos.y;
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            // If small movement, treat as view rotation for desktop
-            if (!e.touches && distance > 5) {
+            // Check if we should do layer rotation (mobile with cubie) or view rotation
+            if (this.touchStartCubie && e.touches && distance > 30 && !draggedLayer) {
+                // Determine which layer to rotate based on drag direction
+                e.preventDefault();
+                const move = this.determineLayerMove(this.touchStartCubie, deltaX, deltaY);
+                if (move) {
+                    draggedLayer = move;
+                    this.executeMove(move, true);
+                }
+            } else if (!e.touches && distance > 5 && !this.touchStartCubie) {
+                // Desktop: view rotation
                 e.preventDefault();
                 this.rotation.y += (clientX - this.previousMousePosition.x) * 0.5;
                 this.rotation.x += (clientY - this.previousMousePosition.y) * 0.5;
@@ -240,6 +326,8 @@ class CubePuzzleGame {
         const onPointerUp = () => {
             this.isDraggingView = false;
             this.touchStartPos = null;
+            this.touchStartCubie = null;
+            draggedLayer = null;
             touchCount = 0;
         };
 
@@ -699,12 +787,12 @@ class CubePuzzleGame {
 
     showHint() {
         const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 2개 손가락으로 드래그하면 큐브를 회전할 수 있습니다!';
+        message.textContent = '💡 힌트: PC는 마우스로 드래그하여 회전, 모바일은 2개 손가락으로 드래그하거나 큐브를 터치하여 레이어를 회전하세요!';
         message.classList.remove('hidden');
         
         setTimeout(() => {
             message.classList.add('hidden');
-        }, 2000);
+        }, 3000);
     }
 
     resetCube() {
