@@ -23,6 +23,7 @@
 	const closeModalBtn = document.getElementById('close-modal-btn');
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
+	const backViewBtn = document.getElementById('back-view-btn');
 
 	// Guide modal elements
 	const guideModal = document.getElementById('guide-modal');
@@ -566,6 +567,54 @@
 			state.rotationSpeed = parseInt(event.target.value);
 			speedValueEl.textContent = `${state.rotationSpeed}ms`;
 		});
+
+		// Back view button events
+		if (backViewBtn) {
+			let isBackViewButtonPressed = false;
+
+			const activateBackView = (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				if (!state.isBackFaceView && !isBackViewButtonPressed) {
+					isBackViewButtonPressed = true;
+					toggleBackFaceView();
+					backViewBtn.classList.add('active');
+				}
+			};
+
+			const deactivateBackView = (event) => {
+				if (event) {
+					event.preventDefault();
+					event.stopPropagation();
+				}
+				if (state.isBackFaceView && isBackViewButtonPressed) {
+					isBackViewButtonPressed = false;
+					toggleBackFaceView();
+					backViewBtn.classList.remove('active');
+				}
+			};
+
+			// Mouse events on button
+			backViewBtn.addEventListener('mousedown', activateBackView);
+			backViewBtn.addEventListener('mouseup', deactivateBackView);
+			backViewBtn.addEventListener('mouseleave', deactivateBackView);
+
+			// Touch events on button
+			backViewBtn.addEventListener('touchstart', activateBackView, { passive: false });
+			backViewBtn.addEventListener('touchend', deactivateBackView, { passive: false });
+			backViewBtn.addEventListener('touchcancel', deactivateBackView, { passive: false });
+
+			// Global event listeners to handle cases where mouse/touch is released outside the button
+			const handleGlobalRelease = () => {
+				if (isBackViewButtonPressed) {
+					deactivateBackView();
+				}
+			};
+
+			window.addEventListener('mouseup', handleGlobalRelease);
+			window.addEventListener('touchend', handleGlobalRelease);
+			window.addEventListener('touchcancel', handleGlobalRelease);
+		}
 	}
 
 	function toggleBackFaceView() {
