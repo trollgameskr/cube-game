@@ -80,7 +80,8 @@
 		isRotating: false,
 		isBackFaceView: false,
 		gameStartTime: null,
-		gameInProgress: false
+		gameInProgress: false,
+		lastGameTime: 0
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -1177,6 +1178,7 @@
 	function handleVictory() {
 		state.gameInProgress = false;
 		const gameTime = Math.floor((Date.now() - state.gameStartTime) / 1000);
+		state.lastGameTime = gameTime;
 		
 		setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
 		
@@ -1454,7 +1456,8 @@
 		// Save nickname for future use
 		localStorage.setItem('cubeGameNickname', nickname);
 		
-		const gameTime = Math.floor((Date.now() - state.gameStartTime) / 1000);
+		// Use the stored game time from when victory was achieved
+		const gameTime = state.lastGameTime;
 		
 		if (!window.firebaseDb) {
 			setMessage('Firebase에 연결할 수 없습니다. (데모 모드)');
