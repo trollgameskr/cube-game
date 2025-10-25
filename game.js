@@ -570,33 +570,58 @@
 
 		// Back view button events
 		if (backViewBtn) {
+			let isBackViewButtonPressed = false;
+
 			const activateBackView = (event) => {
 				event.preventDefault();
 				event.stopPropagation();
-				if (!state.isBackFaceView) {
+				if (!state.isBackFaceView && !isBackViewButtonPressed) {
+					isBackViewButtonPressed = true;
 					toggleBackFaceView();
 					backViewBtn.classList.add('active');
 				}
 			};
 
 			const deactivateBackView = (event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				if (state.isBackFaceView) {
+				if (event) {
+					event.preventDefault();
+					event.stopPropagation();
+				}
+				if (state.isBackFaceView && isBackViewButtonPressed) {
+					isBackViewButtonPressed = false;
 					toggleBackFaceView();
 					backViewBtn.classList.remove('active');
 				}
 			};
 
-			// Mouse events
+			// Mouse events on button
 			backViewBtn.addEventListener('mousedown', activateBackView);
 			backViewBtn.addEventListener('mouseup', deactivateBackView);
 			backViewBtn.addEventListener('mouseleave', deactivateBackView);
 
-			// Touch events
+			// Touch events on button
 			backViewBtn.addEventListener('touchstart', activateBackView, { passive: false });
 			backViewBtn.addEventListener('touchend', deactivateBackView, { passive: false });
 			backViewBtn.addEventListener('touchcancel', deactivateBackView, { passive: false });
+
+			// Global event listeners to handle cases where mouse/touch is released outside the button
+			window.addEventListener('mouseup', () => {
+				if (isBackViewButtonPressed) {
+					deactivateBackView();
+				}
+			});
+
+			window.addEventListener('touchend', () => {
+				if (isBackViewButtonPressed) {
+					deactivateBackView();
+				}
+			});
+
+			window.addEventListener('touchcancel', () => {
+				if (isBackViewButtonPressed) {
+					deactivateBackView();
+				}
+			});
 		}
 	}
 
