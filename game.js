@@ -481,16 +481,37 @@
 
 	function toggleBackFaceView() {
 		state.isBackFaceView = !state.isBackFaceView;
-		const side = state.isBackFaceView ? THREE.BackSide : THREE.FrontSide;
 		
 		cubelets.forEach((cubelet) => {
 			if (Array.isArray(cubelet.mesh.material)) {
 				cubelet.mesh.material.forEach((material) => {
-					material.side = side;
+					if (state.isBackFaceView) {
+						// In back face view mode:
+						// - Hide interior (base color) faces
+						// - Show back faces of colored materials
+						if (material.color.getHex() === COLORS.base) {
+							material.visible = false;
+						} else {
+							material.side = THREE.BackSide;
+						}
+					} else {
+						// In front face view mode: restore default
+						material.visible = true;
+						material.side = THREE.FrontSide;
+					}
 					material.needsUpdate = true;
 				});
 			} else {
-				cubelet.mesh.material.side = side;
+				if (state.isBackFaceView) {
+					if (cubelet.mesh.material.color.getHex() === COLORS.base) {
+						cubelet.mesh.material.visible = false;
+					} else {
+						cubelet.mesh.material.side = THREE.BackSide;
+					}
+				} else {
+					cubelet.mesh.material.visible = true;
+					cubelet.mesh.material.side = THREE.FrontSide;
+				}
 				cubelet.mesh.material.needsUpdate = true;
 			}
 		});
