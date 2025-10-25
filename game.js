@@ -75,7 +75,7 @@
 
 	const state = {
 		moveCount: 0,
-		latestMessage: '큐브를 섞는 중...',
+		latestMessage: '게임을 초기화하는 중...',
 		moveHistory: [],
 		isRotating: false,
 		isBackFaceView: false,
@@ -156,9 +156,11 @@
 	animate();
 
 	// Auto-scramble on game initialization to prevent cheating
+	// Delay allows the 3D scene to fully render before scrambling begins
+	const AUTO_SCRAMBLE_DELAY_MS = 500;
 	setTimeout(() => {
 		scrambleCube();
-	}, 500);
+	}, AUTO_SCRAMBLE_DELAY_MS);
 
 	function addEnvironment() {
 		scene.add(new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.85));
