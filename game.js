@@ -1,22 +1,29 @@
-// 3x3 Cube Puzzle Game - Interactive 3D representation using CSS 3D Transforms
+// 3x3 Cube Puzzle Game - Complete Rotation Logic Implementation
 class CubePuzzleGame {
     constructor() {
         this.container = null;
         this.cube = this.createSolvedCube();
         this.cubeElement = null;
         this.cubies = []; // Individual 3x3x3 = 27 small cubes
-        this.isDragging = false;
-        this.previousMousePosition = { x: 0, y: 0 };
         this.rotation = { x: -30, y: -45 };
         this.moveCount = 0;
+        this.isAnimating = false;
+        this.cubieSize = 95;
+        this.gap = 5;
+        
+        // Touch control state
+        this.touchStartPos = null;
+        this.touchStartCubie = null;
+        this.isDraggingView = false;
+        this.previousMousePosition = { x: 0, y: 0 };
         
         this.colors = {
-            0: '#FF0000', // Red - Front
-            1: '#FF8800', // Orange - Back
-            2: '#00FF00', // Green - Left
-            3: '#0000FF', // Blue - Right
-            4: '#FFFF00', // Yellow - Top
-            5: '#FFFFFF'  // White - Bottom
+            0: '#FF0000', // Red - Front (z=2)
+            1: '#FF8800', // Orange - Back (z=0)
+            2: '#00FF00', // Green - Left (x=0)
+            3: '#0000FF', // Blue - Right (x=2)
+            4: '#FFFF00', // Yellow - Top (y=0)
+            5: '#FFFFFF'  // White - Bottom (y=2)
         };
         
         this.init();
@@ -50,14 +57,12 @@ class CubePuzzleGame {
 
     setupCube() {
         this.cubies = [];
-        const cubieSize = 95; // Size of each small cube
-        const gap = 5;
         
         // Create 27 small cubes (3x3x3)
         for (let x = 0; x < 3; x++) {
             for (let y = 0; y < 3; y++) {
                 for (let z = 0; z < 3; z++) {
-                    const cubie = this.createCubie(x, y, z, cubieSize, gap);
+                    const cubie = this.createCubie(x, y, z);
                     this.cubies.push(cubie);
                     this.cubeElement.appendChild(cubie.element);
                 }
@@ -67,31 +72,32 @@ class CubePuzzleGame {
         this.updateCubieColors();
     }
 
-    createCubie(x, y, z, size, gap) {
+    createCubie(x, y, z) {
         const cubie = document.createElement('div');
         cubie.className = 'cubie';
         
-        const offset = (size + gap) - (size + gap) * 1.5;
-        const posX = x * (size + gap) + offset;
-        const posY = -y * (size + gap) - offset;
-        const posZ = z * (size + gap) + offset;
+        const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+        const posX = x * (this.cubieSize + this.gap) + offset;
+        const posY = -y * (this.cubieSize + this.gap) - offset;
+        const posZ = z * (this.cubieSize + this.gap) + offset;
         
         cubie.style.cssText = `
             position: absolute;
-            width: ${size}px;
-            height: ${size}px;
+            width: ${this.cubieSize}px;
+            height: ${this.cubieSize}px;
             transform-style: preserve-3d;
             transform: translate3d(${posX}px, ${posY}px, ${posZ}px);
+            transition: transform 0.3s ease-out;
         `;
         
         // Create 6 faces for each cubie
         const faces = [
-            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${size/2}px` }
+            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
         ];
         
         const faceElements = {};
@@ -100,8 +106,8 @@ class CubePuzzleGame {
             faceEl.className = `face face-${face.name}`;
             faceEl.style.cssText = `
                 position: absolute;
-                width: ${size}px;
-                height: ${size}px;
+                width: ${this.cubieSize}px;
+                height: ${this.cubieSize}px;
                 background: #000;
                 border: 2px solid #222;
                 transform: ${face.rotation} translate3d(${face.translate});
@@ -114,7 +120,8 @@ class CubePuzzleGame {
         return {
             element: cubie,
             faces: faceElements,
-            position: { x, y, z }
+            position: { x, y, z },
+            rotation: { x: 0, y: 0, z: 0 }
         };
     }
 
@@ -167,37 +174,172 @@ class CubePuzzleGame {
         this.cubeElement.style.transform = `rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg)`;
     }
 
+    getCubieAtPoint(clientX, clientY) {
+        // Use document.elementFromPoint to find which cubie was clicked
+        const element = document.elementFromPoint(clientX, clientY);
+        if (!element) return null;
+        
+        // Find the cubie element (either the element itself or a parent)
+        let cubieElement = element;
+        while (cubieElement && !cubieElement.classList.contains('cubie')) {
+            cubieElement = cubieElement.parentElement;
+            if (cubieElement === this.cubeElement || !cubieElement) break;
+        }
+        
+        if (!cubieElement || !cubieElement.classList.contains('cubie')) return null;
+        
+        // Find the cubie object
+        return this.cubies.find(c => c.element === cubieElement);
+    }
+
+    determineLayerMove(cubie, deltaX, deltaY) {
+        // Determine which layer to rotate based on cubie position and drag direction
+        const { x, y, z } = cubie.position;
+        
+        // Determine primary drag direction
+        const isDragHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
+        
+        // Based on cubie position and drag direction, determine the move
+        // Priority: outer layers first, then check if on face
+        
+        if (isDragHorizontal) {
+            // Horizontal drag - affects top/bottom or front/back layers
+            if (deltaX > 0) {
+                // Drag right
+                if (y === 0) return 'U';        // Top layer
+                if (y === 2) return 'Di';       // Bottom layer (inverse)
+            } else {
+                // Drag left
+                if (y === 0) return 'Ui';       // Top layer (inverse)
+                if (y === 2) return 'D';        // Bottom layer
+            }
+        } else {
+            // Vertical drag - affects left/right or front/back layers
+            if (deltaY > 0) {
+                // Drag down
+                if (x === 0) return 'L';        // Left layer
+                if (x === 2) return 'Ri';       // Right layer (inverse)
+            } else {
+                // Drag up
+                if (x === 0) return 'Li';       // Left layer (inverse)
+                if (x === 2) return 'R';        // Right layer
+            }
+        }
+        
+        // For middle layers or ambiguous positions, use front/back as fallback
+        if (isDragHorizontal) {
+            if (deltaX > 0) {
+                if (z === 2) return 'F';        // Front layer
+                if (z === 0) return 'Bi';       // Back layer (inverse)
+            } else {
+                if (z === 2) return 'Fi';       // Front layer (inverse)
+                if (z === 0) return 'B';        // Back layer
+            }
+        } else {
+            // Vertical drag fallback
+            if (deltaY > 0) {
+                if (z === 2) return 'F';        // Front layer
+                if (z === 0) return 'B';        // Back layer
+            } else {
+                if (z === 2) return 'Fi';       // Front layer (inverse)
+                if (z === 0) return 'Bi';       // Back layer (inverse)
+            }
+        }
+        
+        return null;
+    }
+
     setupControls() {
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
+        let touchCount = 0;
+        let draggedLayer = null;
         
         const onPointerDown = (e) => {
-            isDragging = true;
+            if (this.isAnimating) return;
+            
+            if (e.touches) {
+                touchCount = e.touches.length;
+                if (touchCount === 2) {
+                    // Two finger touch - rotate view
+                    this.isDraggingView = true;
+                    const touch = e.touches[0];
+                    this.previousMousePosition = { x: touch.clientX, y: touch.clientY };
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Single touch or mouse - could be layer rotation or view rotation
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            previousMousePosition = { x: clientX, y: clientY };
+            
+            // Check if clicking on a cubie for layer rotation
+            const clickedCubie = this.getCubieAtPoint(clientX, clientY);
+            if (clickedCubie && e.touches) {
+                // Mobile: touching a cubie means layer rotation
+                this.touchStartPos = { x: clientX, y: clientY };
+                this.touchStartCubie = clickedCubie;
+                draggedLayer = null;
+            } else {
+                // Desktop or no cubie: view rotation
+                this.touchStartPos = { x: clientX, y: clientY };
+                this.touchStartCubie = null;
+                this.previousMousePosition = { x: clientX, y: clientY };
+            }
         };
 
         const onPointerMove = (e) => {
-            if (!isDragging) return;
+            if (this.isAnimating) return;
             
-            e.preventDefault();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             
-            const deltaX = clientX - previousMousePosition.x;
-            const deltaY = clientY - previousMousePosition.y;
+            if (e.touches && e.touches.length === 2) {
+                // Two finger rotation
+                if (this.isDraggingView) {
+                    e.preventDefault();
+                    const deltaX = clientX - this.previousMousePosition.x;
+                    const deltaY = clientY - this.previousMousePosition.y;
+                    
+                    this.rotation.y += deltaX * 0.5;
+                    this.rotation.x += deltaY * 0.5;
+                    
+                    this.updateCubeRotation();
+                    this.previousMousePosition = { x: clientX, y: clientY };
+                }
+                return;
+            }
             
-            this.rotation.y += deltaX * 0.5;
-            this.rotation.x += deltaY * 0.5;
+            if (!this.touchStartPos) return;
             
-            this.updateCubeRotation();
+            const deltaX = clientX - this.touchStartPos.x;
+            const deltaY = clientY - this.touchStartPos.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            previousMousePosition = { x: clientX, y: clientY };
+            // Check if we should do layer rotation (mobile with cubie) or view rotation
+            if (this.touchStartCubie && e.touches && distance > 30 && !draggedLayer) {
+                // Determine which layer to rotate based on drag direction
+                e.preventDefault();
+                const move = this.determineLayerMove(this.touchStartCubie, deltaX, deltaY);
+                if (move) {
+                    draggedLayer = move;
+                    this.executeMove(move, true);
+                }
+            } else if (!e.touches && distance > 5 && !this.touchStartCubie) {
+                // Desktop: view rotation
+                e.preventDefault();
+                this.rotation.y += (clientX - this.previousMousePosition.x) * 0.5;
+                this.rotation.x += (clientY - this.previousMousePosition.y) * 0.5;
+                this.updateCubeRotation();
+                this.previousMousePosition = { x: clientX, y: clientY };
+            }
         };
 
         const onPointerUp = () => {
-            isDragging = false;
+            this.isDraggingView = false;
+            this.touchStartPos = null;
+            this.touchStartCubie = null;
+            draggedLayer = null;
+            touchCount = 0;
         };
 
         this.container.addEventListener('mousedown', onPointerDown);
@@ -266,28 +408,32 @@ class CubePuzzleGame {
         }
     }
 
-    executeMove(move, countMove = false) {
+    async executeMove(move, countMove = false) {
+        if (this.isAnimating) return;
+        
         if (countMove) {
             this.moveCount++;
             document.getElementById('moves').textContent = this.moveCount;
         }
         
+        this.isAnimating = true;
+        
         switch(move) {
-            case 'U': this.rotateTop(true); break;
-            case 'Ui': this.rotateTop(false); break;
-            case 'D': this.rotateBottom(true); break;
-            case 'Di': this.rotateBottom(false); break;
-            case 'L': this.rotateLeft(true); break;
-            case 'Li': this.rotateLeft(false); break;
-            case 'R': this.rotateRight(true); break;
-            case 'Ri': this.rotateRight(false); break;
-            case 'F': this.rotateFront(true); break;
-            case 'Fi': this.rotateFront(false); break;
-            case 'B': this.rotateBack(true); break;
-            case 'Bi': this.rotateBack(false); break;
+            case 'U': await this.rotateTop(true); break;
+            case 'Ui': await this.rotateTop(false); break;
+            case 'D': await this.rotateBottom(true); break;
+            case 'Di': await this.rotateBottom(false); break;
+            case 'L': await this.rotateLeft(true); break;
+            case 'Li': await this.rotateLeft(false); break;
+            case 'R': await this.rotateRight(true); break;
+            case 'Ri': await this.rotateRight(false); break;
+            case 'F': await this.rotateFront(true); break;
+            case 'Fi': await this.rotateFront(false); break;
+            case 'B': await this.rotateBack(true); break;
+            case 'Bi': await this.rotateBack(false); break;
         }
         
-        this.updateCubieColors();
+        this.isAnimating = false;
         
         if (countMove) {
             this.checkWinCondition();
@@ -307,8 +453,149 @@ class CubePuzzleGame {
         }
     }
 
-    rotateTop(clockwise = true) {
+    async rotateLayerAnimation(cubies, axis, angle, center) {
+        // In a real Rubik's cube, each face rotates around its center cubie
+        // The center cubie stays in place and only rotates
+        // The other 8 cubies rotate around this center point
+        
+        cubies.forEach(cubie => {
+            const { x, y, z } = cubie.position;
+            
+            // Check if this is the center cubie
+            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
+            
+            if (isCenterCubie) {
+                // Center cubie only rotates in place, doesn't move
+                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
+                               axis === 'y' ? `rotateY(${angle}deg)` :
+                               `rotateZ(${angle}deg)`;
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotation}`;
+            } else {
+                // Other cubies rotate around the center cubie
+                // First translate to center, rotate, then translate back
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const centerX = center.x * (this.cubieSize + this.gap) + offset;
+                const centerY = -center.y * (this.cubieSize + this.gap) - offset;
+                const centerZ = center.z * (this.cubieSize + this.gap) + offset;
+                
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                
+                // Calculate relative position from center
+                const relX = posX - centerX;
+                const relY = posY - centerY;
+                const relZ = posZ - centerZ;
+                
+                // Build transform: translate to center, rotate, translate back
+                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
+                               axis === 'y' ? `rotateY(${angle}deg)` :
+                               `rotateZ(${angle}deg)`;
+                
+                cubie.element.style.transform = 
+                    `translate3d(${centerX}px, ${centerY}px, ${centerZ}px) ` +
+                    `${rotation} ` +
+                    `translate3d(${relX}px, ${relY}px, ${relZ}px)`;
+            }
+        });
+        
+        // Wait for animation to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Update positions after rotation
+        this.updateCubiePositions(cubies, axis, angle, center);
+    }
+
+    updateCubiePositions(cubies, axis, angle, center) {
+        const radians = (angle * Math.PI) / 180;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        
+        cubies.forEach(cubie => {
+            let { x, y, z } = cubie.position;
+            
+            // Check if this is the center cubie
+            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
+            
+            if (isCenterCubie) {
+                // Center cubie position never changes, only its rotation
+                // Just update the transform to maintain rotation
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = x * (this.cubieSize + this.gap) + offset;
+                const posY = -y * (this.cubieSize + this.gap) - offset;
+                const posZ = z * (this.cubieSize + this.gap) + offset;
+                
+                // Track cumulative rotation for center cubie
+                if (!cubie.centerRotation) {
+                    cubie.centerRotation = { x: 0, y: 0, z: 0 };
+                }
+                if (axis === 'x') cubie.centerRotation.x += angle;
+                if (axis === 'y') cubie.centerRotation.y += angle;
+                if (axis === 'z') cubie.centerRotation.z += angle;
+                
+                const rotX = `rotateX(${cubie.centerRotation.x}deg)`;
+                const rotY = `rotateY(${cubie.centerRotation.y}deg)`;
+                const rotZ = `rotateZ(${cubie.centerRotation.z}deg)`;
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotX} ${rotY} ${rotZ}`;
+            } else {
+                // For other cubies, calculate new position relative to center
+                // Translate position relative to center
+                const relX = x - center.x;
+                const relY = y - center.y;
+                const relZ = z - center.z;
+                
+                let newRelX = relX, newRelY = relY, newRelZ = relZ;
+                
+                // Apply rotation matrix around center
+                if (axis === 'y') {
+                    // Rotation around Y axis
+                    newRelX = Math.round(relX * cos + relZ * sin);
+                    newRelZ = Math.round(-relX * sin + relZ * cos);
+                } else if (axis === 'x') {
+                    // Rotation around X axis  
+                    newRelY = Math.round(relY * cos - relZ * sin);
+                    newRelZ = Math.round(relY * sin + relZ * cos);
+                } else if (axis === 'z') {
+                    // Rotation around Z axis
+                    newRelX = Math.round(relX * cos - relY * sin);
+                    newRelY = Math.round(relX * sin + relY * cos);
+                }
+                
+                // Calculate new absolute position
+                const newX = center.x + newRelX;
+                const newY = center.y + newRelY;
+                const newZ = center.z + newRelZ;
+                
+                cubie.position = { x: newX, y: newY, z: newZ };
+                
+                // Update visual position
+                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+                const posX = newX * (this.cubieSize + this.gap) + offset;
+                const posY = -newY * (this.cubieSize + this.gap) - offset;
+                const posZ = newZ * (this.cubieSize + this.gap) + offset;
+                
+                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
+            }
+        });
+    }
+
+    async rotateTop(clockwise = true) {
         this.rotateFace(this.cube.top, clockwise);
+        
+        // Get cubies on top layer (y = 0)
+        const layerCubies = this.cubies.filter(c => c.position.y === 0);
+        
+        // Top face center is at (1, 0, 1)
+        const center = { x: 1, y: 0, z: 1 };
+        
+        // Animate rotation around center
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? -90 : 90, center);
+        
+        // Update color state
         const temp = [this.cube.front[0], this.cube.front[1], this.cube.front[2]];
         if (clockwise) {
             this.cube.front[0] = this.cube.right[0];
@@ -343,10 +630,20 @@ class CubePuzzleGame {
             this.cube.right[1] = temp[1];
             this.cube.right[2] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateBottom(clockwise = true) {
+    async rotateBottom(clockwise = true) {
         this.rotateFace(this.cube.bottom, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.y === 2);
+        
+        // Bottom face center is at (1, 2, 1)
+        const center = { x: 1, y: 2, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? 90 : -90, center);
+        
         const temp = [this.cube.front[6], this.cube.front[7], this.cube.front[8]];
         if (clockwise) {
             this.cube.front[6] = this.cube.left[6];
@@ -381,10 +678,20 @@ class CubePuzzleGame {
             this.cube.left[7] = temp[1];
             this.cube.left[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateFront(clockwise = true) {
+    async rotateFront(clockwise = true) {
         this.rotateFace(this.cube.front, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.z === 2);
+        
+        // Front face center is at (1, 1, 2)
+        const center = { x: 1, y: 1, z: 2 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? -90 : 90, center);
+        
         const temp = [this.cube.top[6], this.cube.top[7], this.cube.top[8]];
         if (clockwise) {
             this.cube.top[6] = this.cube.left[8];
@@ -419,10 +726,20 @@ class CubePuzzleGame {
             this.cube.left[5] = temp[7];
             this.cube.left[8] = temp[6];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateBack(clockwise = true) {
+    async rotateBack(clockwise = true) {
         this.rotateFace(this.cube.back, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.z === 0);
+        
+        // Back face center is at (1, 1, 0)
+        const center = { x: 1, y: 1, z: 0 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? 90 : -90, center);
+        
         const temp = [this.cube.top[0], this.cube.top[1], this.cube.top[2]];
         if (clockwise) {
             this.cube.top[0] = this.cube.right[2];
@@ -457,10 +774,20 @@ class CubePuzzleGame {
             this.cube.right[5] = temp[1];
             this.cube.right[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateLeft(clockwise = true) {
+    async rotateLeft(clockwise = true) {
         this.rotateFace(this.cube.left, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.x === 0);
+        
+        // Left face center is at (0, 1, 1)
+        const center = { x: 0, y: 1, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? 90 : -90, center);
+        
         const temp = [this.cube.top[0], this.cube.top[3], this.cube.top[6]];
         if (clockwise) {
             this.cube.top[0] = this.cube.back[8];
@@ -495,10 +822,20 @@ class CubePuzzleGame {
             this.cube.back[5] = temp[3];
             this.cube.back[8] = temp[0];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateRight(clockwise = true) {
+    async rotateRight(clockwise = true) {
         this.rotateFace(this.cube.right, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.x === 2);
+        
+        // Right face center is at (2, 1, 1)
+        const center = { x: 2, y: 1, z: 1 };
+        
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? -90 : 90, center);
+        
         const temp = [this.cube.top[2], this.cube.top[5], this.cube.top[8]];
         if (clockwise) {
             this.cube.top[2] = this.cube.front[2];
@@ -533,6 +870,8 @@ class CubePuzzleGame {
             this.cube.front[5] = temp[1];
             this.cube.front[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
     checkWinCondition() {
@@ -559,12 +898,12 @@ class CubePuzzleGame {
 
     showHint() {
         const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 드래그로 큐브를 회전하고, 버튼으로 면을 돌리세요!';
+        message.textContent = '💡 힌트: PC는 마우스로 드래그하여 회전, 모바일은 2개 손가락으로 드래그하거나 큐브를 터치하여 레이어를 회전하세요!';
         message.classList.remove('hidden');
         
         setTimeout(() => {
             message.classList.add('hidden');
-        }, 2000);
+        }, 3000);
     }
 
     resetCube() {
@@ -572,12 +911,29 @@ class CubePuzzleGame {
         this.moveCount = 0;
         document.getElementById('moves').textContent = '0';
         document.getElementById('message').classList.add('hidden');
+        
+        // Reset all cubie positions
+        this.cubies.forEach((cubie, index) => {
+            const x = Math.floor(index / 9);
+            const y = Math.floor((index % 9) / 3);
+            const z = index % 3;
+            
+            cubie.position = { x, y, z };
+            cubie.rotation = { x: 0, y: 0, z: 0 };
+            
+            const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+            const posX = x * (this.cubieSize + this.gap) + offset;
+            const posY = -y * (this.cubieSize + this.gap) - offset;
+            const posZ = z * (this.cubieSize + this.gap) + offset;
+            
+            cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
+        });
+        
         this.updateCubieColors();
         setTimeout(() => this.scrambleCube(), 100);
     }
 
     onWindowResize() {
-        // Adjust cube size if needed based on viewport
         const size = Math.min(window.innerWidth * 0.8, 300);
         this.cubeElement.style.width = size + 'px';
         this.cubeElement.style.height = size + 'px';
