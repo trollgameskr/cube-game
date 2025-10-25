@@ -754,7 +754,8 @@
 		gestureState = {
 			pointerIds: ids,
 			lastMidpoint: midpoint,
-			lastDistance: distanceBetweenPointers(p1, p2)
+			lastDistance: distanceBetweenPointers(p1, p2),
+			lastAngle: angleBetweenPointers(p1, p2)
 		};
 	}
 
@@ -772,6 +773,7 @@
 
 		const midpoint = midpointOfPointers(p1, p2);
 		const distance = distanceBetweenPointers(p1, p2);
+		const angle = angleBetweenPointers(p1, p2);
 
 		const panDelta = midpoint.clone().sub(gestureState.lastMidpoint);
 		panCamera(panDelta.x, panDelta.y);
@@ -788,6 +790,26 @@
 		}
 
 		gestureState.lastDistance = distance;
+
+		// Handle rotation gesture
+		if (gestureState.lastAngle !== undefined) {
+			let angleDelta = angle - gestureState.lastAngle;
+			
+			// Normalize angle difference to [-PI, PI]
+			while (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
+			while (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
+			
+			// Only rotate if the angle change is significant enough to avoid jitter
+			if (Math.abs(angleDelta) > 0.01) {
+				// Rotate camera around the viewing axis (theta rotation)
+				orbitState.theta += angleDelta;
+				// Normalize theta to [0, 2π] to prevent overflow
+				orbitState.theta = ((orbitState.theta % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+				updateCameraPosition();
+			}
+		}
+		
+		gestureState.lastAngle = angle;
 	}
 
 	function handleDragMove() {
@@ -1310,6 +1332,10 @@
 			(p1.currentX + p2.currentX) * 0.5,
 			(p1.currentY + p2.currentY) * 0.5
 		);
+	}
+
+	function angleBetweenPointers(p1, p2) {
+		return Math.atan2(p2.currentY - p1.currentY, p2.currentX - p1.currentX);
 	}
 
 	function onResize() {
