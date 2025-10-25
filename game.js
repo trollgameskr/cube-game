@@ -11,6 +11,11 @@ class CubePuzzleGame {
         this.cubieSize = 95;
         this.gap = 5;
         
+        // Camera zoom constants
+        this.MIN_ZOOM = 0.5;
+        this.MAX_ZOOM = 2.5;
+        this.ZOOM_SENSITIVITY = 0.005;
+        
         // Touch control state
         this.touchStartPos = null;
         this.touchStartCubie = null;
@@ -323,9 +328,8 @@ class CubePuzzleGame {
                     const distanceChange = currentDistance - this.initialTouchDistance;
                     
                     // Calculate zoom factor based on distance change
-                    const zoomSensitivity = 0.005;
-                    const zoomDelta = distanceChange * zoomSensitivity;
-                    this.scale = Math.max(0.5, Math.min(2.5, this.scale + zoomDelta));
+                    const zoomDelta = distanceChange * this.ZOOM_SENSITIVITY;
+                    this.scale = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, this.scale + zoomDelta));
                     
                     this.updateCubeRotation();
                     this.initialTouchDistance = currentDistance;
