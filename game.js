@@ -330,13 +330,10 @@
 		});
 	}
 
-	let currentListeningInput = null;
-
 	function onKeyInputFocus(event) {
 		const input = event.target;
 		input.classList.add('listening');
 		input.value = '키를 누르세요...';
-		currentListeningInput = input;
 
 		const keydownHandler = (e) => {
 			e.preventDefault();
@@ -363,8 +360,6 @@
 				}
 				input.blur();
 			}
-
-			input.removeEventListener('keydown', keydownHandler);
 		};
 
 		input.addEventListener('keydown', keydownHandler, { once: true });
@@ -375,13 +370,25 @@
 		input.classList.remove('listening');
 		const keyId = input.id.replace('key-', '');
 		input.value = formatKeyCode(keyboardSettings[keyId]);
-		currentListeningInput = null;
+	}
+
+	function refreshModalDisplay() {
+		Object.keys(keyboardSettings).forEach((key) => {
+			const input = document.getElementById(`key-${key}`);
+			const display = document.querySelector(`.key-display[data-key="${key}"]`);
+			if (input) {
+				input.value = formatKeyCode(keyboardSettings[key]);
+			}
+			if (display) {
+				display.textContent = formatKeyCode(keyboardSettings[key]);
+			}
+		});
 	}
 
 	function resetKeyboardSettings() {
 		Object.assign(keyboardSettings, defaultKeyboardSettings);
 		saveKeyboardSettings();
-		openKeyboardModal(); // Refresh display
+		refreshModalDisplay();
 		setMessage('단축키가 기본값으로 초기화되었습니다.');
 	}
 
