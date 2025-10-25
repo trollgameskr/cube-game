@@ -92,7 +92,8 @@
 		R: 'KeyR',
 		F: 'KeyF',
 		B: 'KeyB',
-		toggleTransparency: 'KeyT'
+		toggleTransparency: 'KeyT',
+		cameraRelativeMode: true  // true = camera-relative, false = fixed-axis
 	};
 
 	const keyboardSettings = loadKeyboardSettings();
@@ -313,6 +314,9 @@
 	function openKeyboardModal() {
 		// Populate current settings
 		Object.keys(keyboardSettings).forEach((key) => {
+			// Skip non-key settings
+			if (key === 'cameraRelativeMode') return;
+			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
 			if (input) {
@@ -322,6 +326,12 @@
 				display.textContent = formatKeyCode(keyboardSettings[key]);
 			}
 		});
+
+		// Set camera relative mode checkbox
+		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+		if (cameraRelativeCheckbox) {
+			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
 
 		keyboardModal.style.display = 'flex';
 		setupKeyListeners();
@@ -400,6 +410,9 @@
 
 	function refreshModalDisplay() {
 		Object.keys(keyboardSettings).forEach((key) => {
+			// Skip non-key settings
+			if (key === 'cameraRelativeMode') return;
+			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
 			if (input) {
@@ -409,6 +422,12 @@
 				display.textContent = formatKeyCode(keyboardSettings[key]);
 			}
 		});
+		
+		// Update camera relative mode checkbox
+		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+		if (cameraRelativeCheckbox) {
+			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
 	}
 
 	function resetKeyboardSettings() {
@@ -488,6 +507,12 @@
 		});
 
 		saveKeysBtn?.addEventListener('click', () => {
+			// Save camera relative mode checkbox state
+			const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
+			if (cameraRelativeCheckbox) {
+				keyboardSettings.cameraRelativeMode = cameraRelativeCheckbox.checked;
+			}
+			
 			saveKeyboardSettings();
 			closeKeyboardModal();
 			setMessage('단축키 설정이 저장되었습니다.');
@@ -603,7 +628,7 @@
 	}
 
 	function bindKeyboardShortcuts() {
-		// Build key map from settings (logical mapping)
+		// Build key map from settings (logical mapping for camera-relative mode)
 		const logicalKeyMap = {};
 		logicalKeyMap[keyboardSettings.U] = 'U';
 		logicalKeyMap[keyboardSettings.D] = 'D';
@@ -611,6 +636,15 @@
 		logicalKeyMap[keyboardSettings.R] = 'R';
 		logicalKeyMap[keyboardSettings.F] = 'F';
 		logicalKeyMap[keyboardSettings.B] = 'B';
+
+		// Fixed-axis mapping (original mode)
+		const fixedAxisKeyMap = {};
+		fixedAxisKeyMap[keyboardSettings.U] = { axis: 'y', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.D] = { axis: 'y', layer: -1 };
+		fixedAxisKeyMap[keyboardSettings.L] = { axis: 'x', layer: -1 };
+		fixedAxisKeyMap[keyboardSettings.R] = { axis: 'x', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.F] = { axis: 'z', layer: 1 };
+		fixedAxisKeyMap[keyboardSettings.B] = { axis: 'z', layer: -1 };
 
 		window.addEventListener('keydown', (event) => {
 			if (event.repeat) {
@@ -635,19 +669,34 @@
 				return;
 			}
 
-			const logicalFace = logicalKeyMap[event.code];
-			if (!logicalFace) {
-				return;
-			}
+			let mapped;
+			
+			if (keyboardSettings.cameraRelativeMode) {
+				// Camera-relative mode: map based on camera orientation
+				const logicalFace = logicalKeyMap[event.code];
+				if (!logicalFace) {
+					return;
+				}
 
-			event.preventDefault();
-			if (state.isRotating) {
-				return;
-			}
+				event.preventDefault();
+				if (state.isRotating) {
+					return;
+				}
 
-			// Get camera-relative face mapping
-			const faceMapping = getCameraRelativeFaceMapping();
-			const mapped = faceMapping[logicalFace];
+				const faceMapping = getCameraRelativeFaceMapping();
+				mapped = faceMapping[logicalFace];
+			} else {
+				// Fixed-axis mode: use original fixed mapping
+				mapped = fixedAxisKeyMap[event.code];
+				if (!mapped) {
+					return;
+				}
+
+				event.preventDefault();
+				if (state.isRotating) {
+					return;
+				}
+			}
 
 			const direction = event.shiftKey ? -1 : 1;
 			enqueueMove({
