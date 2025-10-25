@@ -546,6 +546,25 @@
 	}
 
 	/**
+	 * Helper function to determine which cube axis is most aligned with a given vector
+	 * @param {THREE.Vector3} vector - The vector to analyze
+	 * @returns {{ axis: string, layer: number }} - The dominant axis name and layer (1 or -1)
+	 */
+	function getDominantAxisAndLayer(vector) {
+		const absX = Math.abs(vector.x);
+		const absY = Math.abs(vector.y);
+		const absZ = Math.abs(vector.z);
+		
+		if (absX >= absY && absX >= absZ) {
+			return { axis: 'x', layer: vector.x > 0 ? 1 : -1 };
+		} else if (absY >= absX && absY >= absZ) {
+			return { axis: 'y', layer: vector.y > 0 ? 1 : -1 };
+		} else {
+			return { axis: 'z', layer: vector.z > 0 ? 1 : -1 };
+		}
+	}
+
+	/**
 	 * Determines which cube face is most visible to the camera and returns
 	 * a transformation matrix to map keyboard inputs to camera-relative moves.
 	 */
@@ -568,64 +587,18 @@
 		// The right side becomes "Right" (R)
 		// The left side becomes "Left" (L)
 		
-		// Determine which cube axis is most aligned with camera direction (this is Front)
-		const absX = Math.abs(cameraDir.x);
-		const absY = Math.abs(cameraDir.y);
-		const absZ = Math.abs(cameraDir.z);
-		
-		let frontAxis, frontLayer;
-		if (absX >= absY && absX >= absZ) {
-			frontAxis = 'x';
-			frontLayer = cameraDir.x > 0 ? 1 : -1;
-		} else if (absY >= absX && absY >= absZ) {
-			frontAxis = 'y';
-			frontLayer = cameraDir.y > 0 ? 1 : -1;
-		} else {
-			frontAxis = 'z';
-			frontLayer = cameraDir.z > 0 ? 1 : -1;
-		}
-		
-		// Determine which axis is most aligned with camera up (this is Up)
-		const upAbsX = Math.abs(cameraUpCorrected.x);
-		const upAbsY = Math.abs(cameraUpCorrected.y);
-		const upAbsZ = Math.abs(cameraUpCorrected.z);
-		
-		let upAxis, upLayer;
-		if (upAbsX >= upAbsY && upAbsX >= upAbsZ) {
-			upAxis = 'x';
-			upLayer = cameraUpCorrected.x > 0 ? 1 : -1;
-		} else if (upAbsY >= upAbsX && upAbsY >= upAbsZ) {
-			upAxis = 'y';
-			upLayer = cameraUpCorrected.y > 0 ? 1 : -1;
-		} else {
-			upAxis = 'z';
-			upLayer = cameraUpCorrected.z > 0 ? 1 : -1;
-		}
-		
-		// Determine which axis is most aligned with camera right (this is Right)
-		const rightAbsX = Math.abs(cameraRight.x);
-		const rightAbsY = Math.abs(cameraRight.y);
-		const rightAbsZ = Math.abs(cameraRight.z);
-		
-		let rightAxis, rightLayer;
-		if (rightAbsX >= rightAbsY && rightAbsX >= rightAbsZ) {
-			rightAxis = 'x';
-			rightLayer = cameraRight.x > 0 ? 1 : -1;
-		} else if (rightAbsY >= rightAbsX && rightAbsY >= rightAbsZ) {
-			rightAxis = 'y';
-			rightLayer = cameraRight.y > 0 ? 1 : -1;
-		} else {
-			rightAxis = 'z';
-			rightLayer = cameraRight.z > 0 ? 1 : -1;
-		}
+		// Determine which cube axes are most aligned with camera directions
+		const front = getDominantAxisAndLayer(cameraDir);
+		const up = getDominantAxisAndLayer(cameraUpCorrected);
+		const right = getDominantAxisAndLayer(cameraRight);
 		
 		return {
-			F: { axis: frontAxis, layer: frontLayer },      // Front (face camera is looking at)
-			B: { axis: frontAxis, layer: -frontLayer },     // Back (opposite of front)
-			U: { axis: upAxis, layer: upLayer },            // Up (top of screen)
-			D: { axis: upAxis, layer: -upLayer },           // Down (bottom of screen)
-			R: { axis: rightAxis, layer: rightLayer },      // Right (right side of screen)
-			L: { axis: rightAxis, layer: -rightLayer }      // Left (left side of screen)
+			F: { axis: front.axis, layer: front.layer },      // Front (face camera is looking at)
+			B: { axis: front.axis, layer: -front.layer },     // Back (opposite of front)
+			U: { axis: up.axis, layer: up.layer },            // Up (top of screen)
+			D: { axis: up.axis, layer: -up.layer },           // Down (bottom of screen)
+			R: { axis: right.axis, layer: right.layer },      // Right (right side of screen)
+			L: { axis: right.axis, layer: -right.layer }      // Left (left side of screen)
 		};
 	}
 
