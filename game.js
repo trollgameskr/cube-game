@@ -15,6 +15,11 @@
 	const hintBtn = document.getElementById('hint-btn');
 	const focusBtn = document.getElementById('focus-btn');
 	const focusExitBtn = document.getElementById('focus-exit-btn');
+	const customizeKeysBtn = document.getElementById('customize-keys-btn');
+	const keyboardModal = document.getElementById('keyboard-modal');
+	const closeModalBtn = document.getElementById('close-modal-btn');
+	const saveKeysBtn = document.getElementById('save-keys-btn');
+	const resetKeysBtn = document.getElementById('reset-keys-btn');
 
 	if (!stageEl || !moveCountEl || !moveLogEl || !messageEl) {
 		console.error('Required DOM elements are missing.');
@@ -58,8 +63,22 @@
 		moveCount: 0,
 		latestMessage: '섞기 버튼으로 게임을 시작하세요!',
 		moveHistory: [],
-		isRotating: false
+		isRotating: false,
+		isTransparent: false
 	};
+
+	// Keyboard shortcut settings - customizable
+	const defaultKeyboardSettings = {
+		U: 'KeyU',
+		D: 'KeyD',
+		L: 'KeyL',
+		R: 'KeyR',
+		F: 'KeyF',
+		B: 'KeyB',
+		toggleTransparency: 'KeyT'
+	};
+
+	const keyboardSettings = loadKeyboardSettings();
 
 	const cameraTarget = new THREE.Vector3(0, 0, 0);
 	const orbitState = {
@@ -247,6 +266,134 @@
 		});
 	}
 
+	function loadKeyboardSettings() {
+		try {
+			const saved = localStorage.getItem('cubeGameKeyboardSettings');
+			if (saved) {
+				return { ...defaultKeyboardSettings, ...JSON.parse(saved) };
+			}
+		} catch (error) {
+			console.warn('Failed to load keyboard settings:', error);
+		}
+		return { ...defaultKeyboardSettings };
+	}
+
+	function saveKeyboardSettings() {
+		try {
+			localStorage.setItem('cubeGameKeyboardSettings', JSON.stringify(keyboardSettings));
+		} catch (error) {
+			console.warn('Failed to save keyboard settings:', error);
+		}
+	}
+
+	function openKeyboardModal() {
+		// Populate current settings
+		Object.keys(keyboardSettings).forEach((key) => {
+			const input = document.getElementById(`key-${key}`);
+			const display = document.querySelector(`.key-display[data-key="${key}"]`);
+			if (input) {
+				input.value = formatKeyCode(keyboardSettings[key]);
+			}
+			if (display) {
+				display.textContent = formatKeyCode(keyboardSettings[key]);
+			}
+		});
+
+		keyboardModal.style.display = 'flex';
+		setupKeyListeners();
+	}
+
+	function closeKeyboardModal() {
+		keyboardModal.style.display = 'none';
+		removeKeyListeners();
+	}
+
+	function formatKeyCode(code) {
+		// Convert KeyU to U, KeyT to T, etc.
+		if (code.startsWith('Key')) {
+			return code.substring(3);
+		}
+		return code;
+	}
+
+	function setupKeyListeners() {
+		const inputs = keyboardModal.querySelectorAll('.key-mapping-item input');
+		inputs.forEach((input) => {
+			input.addEventListener('focus', onKeyInputFocus);
+			input.addEventListener('blur', onKeyInputBlur);
+		});
+	}
+
+	function removeKeyListeners() {
+		const inputs = keyboardModal.querySelectorAll('.key-mapping-item input');
+		inputs.forEach((input) => {
+			input.removeEventListener('focus', onKeyInputFocus);
+			input.removeEventListener('blur', onKeyInputBlur);
+		});
+	}
+
+	function onKeyInputFocus(event) {
+		const input = event.target;
+		input.classList.add('listening');
+		input.value = '키를 누르세요...';
+
+		const keydownHandler = (e) => {
+			e.preventDefault();
+			const keyId = input.id.replace('key-', '');
+			const newKeyCode = e.code;
+
+			// Check for duplicates
+			const duplicate = Object.entries(keyboardSettings).find(
+				([key, code]) => code === newKeyCode && key !== keyId
+			);
+
+			if (duplicate) {
+				input.value = `충돌: ${duplicate[0]} 키와 중복`;
+				setTimeout(() => {
+					input.value = formatKeyCode(keyboardSettings[keyId]);
+					input.blur();
+				}, 1500);
+			} else {
+				keyboardSettings[keyId] = newKeyCode;
+				input.value = formatKeyCode(newKeyCode);
+				const display = document.querySelector(`.key-display[data-key="${keyId}"]`);
+				if (display) {
+					display.textContent = formatKeyCode(newKeyCode);
+				}
+				input.blur();
+			}
+		};
+
+		input.addEventListener('keydown', keydownHandler, { once: true });
+	}
+
+	function onKeyInputBlur(event) {
+		const input = event.target;
+		input.classList.remove('listening');
+		const keyId = input.id.replace('key-', '');
+		input.value = formatKeyCode(keyboardSettings[keyId]);
+	}
+
+	function refreshModalDisplay() {
+		Object.keys(keyboardSettings).forEach((key) => {
+			const input = document.getElementById(`key-${key}`);
+			const display = document.querySelector(`.key-display[data-key="${key}"]`);
+			if (input) {
+				input.value = formatKeyCode(keyboardSettings[key]);
+			}
+			if (display) {
+				display.textContent = formatKeyCode(keyboardSettings[key]);
+			}
+		});
+	}
+
+	function resetKeyboardSettings() {
+		Object.assign(keyboardSettings, defaultKeyboardSettings);
+		saveKeyboardSettings();
+		refreshModalDisplay();
+		setMessage('단축키가 기본값으로 초기화되었습니다.');
+	}
+
 	function bindUIEvents() {
 		scrambleBtn?.addEventListener('click', () => {
 			if (state.isRotating) {
@@ -306,17 +453,62 @@
 		focusExitBtn?.addEventListener('click', () => {
 			toggleFocusMode();
 		});
+		customizeKeysBtn?.addEventListener('click', () => {
+			openKeyboardModal();
+		});
+
+		closeModalBtn?.addEventListener('click', () => {
+			closeKeyboardModal();
+		});
+
+		saveKeysBtn?.addEventListener('click', () => {
+			saveKeyboardSettings();
+			closeKeyboardModal();
+			setMessage('단축키 설정이 저장되었습니다.');
+		});
+
+		resetKeysBtn?.addEventListener('click', () => {
+			resetKeyboardSettings();
+		});
+
+		// Close modal on background click
+		keyboardModal?.addEventListener('click', (event) => {
+			if (event.target === keyboardModal) {
+				closeKeyboardModal();
+			}
+		});
+	}
+
+	function toggleTransparency() {
+		state.isTransparent = !state.isTransparent;
+		const opacity = state.isTransparent ? 0.3 : 1.0;
+		
+		cubelets.forEach((cubelet) => {
+			if (Array.isArray(cubelet.mesh.material)) {
+				cubelet.mesh.material.forEach((material) => {
+					material.transparent = true;
+					material.opacity = opacity;
+					material.needsUpdate = true;
+				});
+			} else {
+				cubelet.mesh.material.transparent = true;
+				cubelet.mesh.material.opacity = opacity;
+				cubelet.mesh.material.needsUpdate = true;
+			}
+		});
+		
+		setMessage(state.isTransparent ? '메시가 반투명으로 변경되었습니다.' : '메시가 불투명으로 변경되었습니다.');
 	}
 
 	function bindKeyboardShortcuts() {
-		const keyMap = {
-			KeyU: { axis: 'y', layer: 1 },
-			KeyD: { axis: 'y', layer: -1 },
-			KeyL: { axis: 'x', layer: -1 },
-			KeyR: { axis: 'x', layer: 1 },
-			KeyF: { axis: 'z', layer: 1 },
-			KeyB: { axis: 'z', layer: -1 }
-		};
+		// Build key map from settings
+		const keyMap = {};
+		keyMap[keyboardSettings.U] = { axis: 'y', layer: 1 };
+		keyMap[keyboardSettings.D] = { axis: 'y', layer: -1 };
+		keyMap[keyboardSettings.L] = { axis: 'x', layer: -1 };
+		keyMap[keyboardSettings.R] = { axis: 'x', layer: 1 };
+		keyMap[keyboardSettings.F] = { axis: 'z', layer: 1 };
+		keyMap[keyboardSettings.B] = { axis: 'z', layer: -1 };
 
 		window.addEventListener('keydown', (event) => {
 			if (event.repeat) {
@@ -331,6 +523,10 @@
 			if (event.code === 'Escape') {
 				event.preventDefault();
 				toggleFocusMode();
+			// Check for transparency toggle
+			if (event.code === keyboardSettings.toggleTransparency) {
+				event.preventDefault();
+				toggleTransparency();
 				return;
 			}
 
@@ -607,6 +803,32 @@
 		const dominantTangent = dominantIndex === 0 ? tangentA : tangentB;
 		const dominantSign = alignment[dominantIndex].sign || 1;
 
+		// For front face (z-axis, layer=1), rotate adjacent faces instead
+		let finalAxis = axisName;
+		let finalLayer = layer;
+		
+		if (axisName === 'z' && layer === 1) {
+			// Determine which adjacent axis to use based on dominant tangent
+			// tangentA and tangentB are perpendicular to the front face normal
+			const absX = Math.abs(dominantTangent.x);
+			const absY = Math.abs(dominantTangent.y);
+			
+			if (absX > absY) {
+				// Horizontal drag → rotate left/right face (x-axis)
+				finalAxis = 'x';
+				// dominantTangent.x > 0 means dragging right → rotate right face (layer 1)
+				// dominantTangent.x < 0 means dragging left → rotate left face (layer -1)
+				finalLayer = dominantTangent.x > 0 ? 1 : -1;
+			} else {
+				// Vertical drag → rotate up/down face (y-axis)
+				finalAxis = 'y';
+				// dominantTangent.y > 0 means dragging up → rotate up face (layer 1)
+				// dominantTangent.y < 0 means dragging down → rotate down face (layer -1)
+				finalLayer = dominantTangent.y > 0 ? 1 : -1;
+			}
+		}
+
+		const finalAxisVector = AXIS_VECTORS[finalAxis];
 		const samplePoint = point.clone().add(dominantTangent.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
 		const screenStart = projectPointToScreen(samplePoint);
@@ -616,7 +838,7 @@
 		const normalizedDrag = dragVec.clone().normalize();
 
 		for (const sign of [1, -1]) {
-			const rotatedPoint = rotatePointAroundAxis(samplePoint, axisVector, sign * baseAngle);
+			const rotatedPoint = rotatePointAroundAxis(samplePoint, finalAxisVector, sign * baseAngle);
 			const rotatedScreen = projectPointToScreen(rotatedPoint);
 			const predicted = rotatedScreen.sub(screenStart);
 			if (predicted.lengthSq() === 0) {
@@ -634,11 +856,11 @@
 			bestSign = dominantSign;
 		}
 
-		const direction = deriveDirectionFromAngleSign(bestSign, layer);
+		const direction = deriveDirectionFromAngleSign(bestSign, finalLayer);
 
 		return {
-			axis: axisName,
-			layer,
+			axis: finalAxis,
+			layer: finalLayer,
 			direction
 		};
 	}
