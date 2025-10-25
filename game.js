@@ -604,10 +604,14 @@
 			if (absX > absY) {
 				// Horizontal drag → rotate left/right face (x-axis)
 				finalAxis = 'x';
+				// dominantTangent.x > 0 means dragging right → rotate right face (layer 1)
+				// dominantTangent.x < 0 means dragging left → rotate left face (layer -1)
 				finalLayer = dominantTangent.x > 0 ? 1 : -1;
 			} else {
 				// Vertical drag → rotate up/down face (y-axis)
 				finalAxis = 'y';
+				// dominantTangent.y > 0 means dragging up → rotate up face (layer 1)
+				// dominantTangent.y < 0 means dragging down → rotate down face (layer -1)
 				finalLayer = dominantTangent.y > 0 ? 1 : -1;
 			}
 		}
