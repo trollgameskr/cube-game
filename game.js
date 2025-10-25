@@ -1,22 +1,29 @@
-// 3x3 Cube Puzzle Game - Interactive 3D representation using CSS 3D Transforms
+// 3x3 Cube Puzzle Game - Complete Rotation Logic Implementation
 class CubePuzzleGame {
     constructor() {
         this.container = null;
         this.cube = this.createSolvedCube();
         this.cubeElement = null;
         this.cubies = []; // Individual 3x3x3 = 27 small cubes
-        this.isDragging = false;
-        this.previousMousePosition = { x: 0, y: 0 };
         this.rotation = { x: -30, y: -45 };
         this.moveCount = 0;
+        this.isAnimating = false;
+        this.cubieSize = 95;
+        this.gap = 5;
+        
+        // Touch control state
+        this.touchStartPos = null;
+        this.touchStartCubie = null;
+        this.isDraggingView = false;
+        this.previousMousePosition = { x: 0, y: 0 };
         
         this.colors = {
-            0: '#FF0000', // Red - Front
-            1: '#FF8800', // Orange - Back
-            2: '#00FF00', // Green - Left
-            3: '#0000FF', // Blue - Right
-            4: '#FFFF00', // Yellow - Top
-            5: '#FFFFFF'  // White - Bottom
+            0: '#FF0000', // Red - Front (z=2)
+            1: '#FF8800', // Orange - Back (z=0)
+            2: '#00FF00', // Green - Left (x=0)
+            3: '#0000FF', // Blue - Right (x=2)
+            4: '#FFFF00', // Yellow - Top (y=0)
+            5: '#FFFFFF'  // White - Bottom (y=2)
         };
         
         this.init();
@@ -50,14 +57,12 @@ class CubePuzzleGame {
 
     setupCube() {
         this.cubies = [];
-        const cubieSize = 95; // Size of each small cube
-        const gap = 5;
         
         // Create 27 small cubes (3x3x3)
         for (let x = 0; x < 3; x++) {
             for (let y = 0; y < 3; y++) {
                 for (let z = 0; z < 3; z++) {
-                    const cubie = this.createCubie(x, y, z, cubieSize, gap);
+                    const cubie = this.createCubie(x, y, z);
                     this.cubies.push(cubie);
                     this.cubeElement.appendChild(cubie.element);
                 }
@@ -67,31 +72,32 @@ class CubePuzzleGame {
         this.updateCubieColors();
     }
 
-    createCubie(x, y, z, size, gap) {
+    createCubie(x, y, z) {
         const cubie = document.createElement('div');
         cubie.className = 'cubie';
         
-        const offset = (size + gap) - (size + gap) * 1.5;
-        const posX = x * (size + gap) + offset;
-        const posY = -y * (size + gap) - offset;
-        const posZ = z * (size + gap) + offset;
+        const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+        const posX = x * (this.cubieSize + this.gap) + offset;
+        const posY = -y * (this.cubieSize + this.gap) - offset;
+        const posZ = z * (this.cubieSize + this.gap) + offset;
         
         cubie.style.cssText = `
             position: absolute;
-            width: ${size}px;
-            height: ${size}px;
+            width: ${this.cubieSize}px;
+            height: ${this.cubieSize}px;
             transform-style: preserve-3d;
             transform: translate3d(${posX}px, ${posY}px, ${posZ}px);
+            transition: transform 0.3s ease-out;
         `;
         
         // Create 6 faces for each cubie
         const faces = [
-            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${size/2}px` },
-            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${size/2}px` }
+            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
         ];
         
         const faceElements = {};
@@ -100,8 +106,8 @@ class CubePuzzleGame {
             faceEl.className = `face face-${face.name}`;
             faceEl.style.cssText = `
                 position: absolute;
-                width: ${size}px;
-                height: ${size}px;
+                width: ${this.cubieSize}px;
+                height: ${this.cubieSize}px;
                 background: #000;
                 border: 2px solid #222;
                 transform: ${face.rotation} translate3d(${face.translate});
@@ -114,7 +120,8 @@ class CubePuzzleGame {
         return {
             element: cubie,
             faces: faceElements,
-            position: { x, y, z }
+            position: { x, y, z },
+            rotation: { x: 0, y: 0, z: 0 }
         };
     }
 
@@ -168,36 +175,72 @@ class CubePuzzleGame {
     }
 
     setupControls() {
-        let isDragging = false;
-        let previousMousePosition = { x: 0, y: 0 };
+        let touchCount = 0;
+        let initialDistance = 0;
         
         const onPointerDown = (e) => {
-            isDragging = true;
+            if (e.touches) {
+                touchCount = e.touches.length;
+                if (touchCount === 2) {
+                    // Two finger touch - rotate view
+                    this.isDraggingView = true;
+                    const touch = e.touches[0];
+                    this.previousMousePosition = { x: touch.clientX, y: touch.clientY };
+                    e.preventDefault();
+                    return;
+                }
+            }
+            
+            // Single touch or mouse - could be layer rotation or view rotation
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            previousMousePosition = { x: clientX, y: clientY };
+            
+            this.touchStartPos = { x: clientX, y: clientY };
+            this.previousMousePosition = { x: clientX, y: clientY };
         };
 
         const onPointerMove = (e) => {
-            if (!isDragging) return;
+            if (this.isAnimating) return;
             
-            e.preventDefault();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             
-            const deltaX = clientX - previousMousePosition.x;
-            const deltaY = clientY - previousMousePosition.y;
+            if (e.touches && e.touches.length === 2) {
+                // Two finger rotation
+                if (this.isDraggingView) {
+                    e.preventDefault();
+                    const deltaX = clientX - this.previousMousePosition.x;
+                    const deltaY = clientY - this.previousMousePosition.y;
+                    
+                    this.rotation.y += deltaX * 0.5;
+                    this.rotation.x += deltaY * 0.5;
+                    
+                    this.updateCubeRotation();
+                    this.previousMousePosition = { x: clientX, y: clientY };
+                }
+                return;
+            }
             
-            this.rotation.y += deltaX * 0.5;
-            this.rotation.x += deltaY * 0.5;
+            if (!this.touchStartPos) return;
             
-            this.updateCubeRotation();
+            const deltaX = clientX - this.touchStartPos.x;
+            const deltaY = clientY - this.touchStartPos.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             
-            previousMousePosition = { x: clientX, y: clientY };
+            // If small movement, treat as view rotation for desktop
+            if (!e.touches && distance > 5) {
+                e.preventDefault();
+                this.rotation.y += (clientX - this.previousMousePosition.x) * 0.5;
+                this.rotation.x += (clientY - this.previousMousePosition.y) * 0.5;
+                this.updateCubeRotation();
+                this.previousMousePosition = { x: clientX, y: clientY };
+            }
         };
 
         const onPointerUp = () => {
-            isDragging = false;
+            this.isDraggingView = false;
+            this.touchStartPos = null;
+            touchCount = 0;
         };
 
         this.container.addEventListener('mousedown', onPointerDown);
@@ -266,28 +309,32 @@ class CubePuzzleGame {
         }
     }
 
-    executeMove(move, countMove = false) {
+    async executeMove(move, countMove = false) {
+        if (this.isAnimating) return;
+        
         if (countMove) {
             this.moveCount++;
             document.getElementById('moves').textContent = this.moveCount;
         }
         
+        this.isAnimating = true;
+        
         switch(move) {
-            case 'U': this.rotateTop(true); break;
-            case 'Ui': this.rotateTop(false); break;
-            case 'D': this.rotateBottom(true); break;
-            case 'Di': this.rotateBottom(false); break;
-            case 'L': this.rotateLeft(true); break;
-            case 'Li': this.rotateLeft(false); break;
-            case 'R': this.rotateRight(true); break;
-            case 'Ri': this.rotateRight(false); break;
-            case 'F': this.rotateFront(true); break;
-            case 'Fi': this.rotateFront(false); break;
-            case 'B': this.rotateBack(true); break;
-            case 'Bi': this.rotateBack(false); break;
+            case 'U': await this.rotateTop(true); break;
+            case 'Ui': await this.rotateTop(false); break;
+            case 'D': await this.rotateBottom(true); break;
+            case 'Di': await this.rotateBottom(false); break;
+            case 'L': await this.rotateLeft(true); break;
+            case 'Li': await this.rotateLeft(false); break;
+            case 'R': await this.rotateRight(true); break;
+            case 'Ri': await this.rotateRight(false); break;
+            case 'F': await this.rotateFront(true); break;
+            case 'Fi': await this.rotateFront(false); break;
+            case 'B': await this.rotateBack(true); break;
+            case 'Bi': await this.rotateBack(false); break;
         }
         
-        this.updateCubieColors();
+        this.isAnimating = false;
         
         if (countMove) {
             this.checkWinCondition();
@@ -307,8 +354,69 @@ class CubePuzzleGame {
         }
     }
 
-    rotateTop(clockwise = true) {
+    async rotateLayerAnimation(cubies, axis, angle) {
+        // Apply rotation to each cubie in the layer
+        cubies.forEach(cubie => {
+            const currentTransform = cubie.element.style.transform;
+            const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
+                           axis === 'y' ? `rotateY(${angle}deg)` :
+                           `rotateZ(${angle}deg)`;
+            cubie.element.style.transform = `${rotation} ${currentTransform}`;
+        });
+        
+        // Wait for animation to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Update positions and reset transform
+        this.updateCubiePositions(cubies, axis, angle);
+    }
+
+    updateCubiePositions(cubies, axis, angle) {
+        const radians = (angle * Math.PI) / 180;
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        
+        cubies.forEach(cubie => {
+            let { x, y, z } = cubie.position;
+            let newX = x, newY = y, newZ = z;
+            
+            // Apply rotation matrix
+            if (axis === 'y') {
+                // Rotation around Y axis
+                newX = Math.round(x * cos + z * sin);
+                newZ = Math.round(-x * sin + z * cos);
+            } else if (axis === 'x') {
+                // Rotation around X axis  
+                newY = Math.round(y * cos - z * sin);
+                newZ = Math.round(y * sin + z * cos);
+            } else if (axis === 'z') {
+                // Rotation around Z axis
+                newX = Math.round(x * cos - y * sin);
+                newY = Math.round(x * sin + y * cos);
+            }
+            
+            cubie.position = { x: newX, y: newY, z: newZ };
+            
+            // Update visual position
+            const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+            const posX = newX * (this.cubieSize + this.gap) + offset;
+            const posY = -newY * (this.cubieSize + this.gap) - offset;
+            const posZ = newZ * (this.cubieSize + this.gap) + offset;
+            
+            cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
+        });
+    }
+
+    async rotateTop(clockwise = true) {
         this.rotateFace(this.cube.top, clockwise);
+        
+        // Get cubies on top layer (y = 0)
+        const layerCubies = this.cubies.filter(c => c.position.y === 0);
+        
+        // Animate rotation
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? -90 : 90);
+        
+        // Update color state
         const temp = [this.cube.front[0], this.cube.front[1], this.cube.front[2]];
         if (clockwise) {
             this.cube.front[0] = this.cube.right[0];
@@ -343,10 +451,16 @@ class CubePuzzleGame {
             this.cube.right[1] = temp[1];
             this.cube.right[2] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateBottom(clockwise = true) {
+    async rotateBottom(clockwise = true) {
         this.rotateFace(this.cube.bottom, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.y === 2);
+        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? 90 : -90);
+        
         const temp = [this.cube.front[6], this.cube.front[7], this.cube.front[8]];
         if (clockwise) {
             this.cube.front[6] = this.cube.left[6];
@@ -381,10 +495,16 @@ class CubePuzzleGame {
             this.cube.left[7] = temp[1];
             this.cube.left[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateFront(clockwise = true) {
+    async rotateFront(clockwise = true) {
         this.rotateFace(this.cube.front, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.z === 2);
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? -90 : 90);
+        
         const temp = [this.cube.top[6], this.cube.top[7], this.cube.top[8]];
         if (clockwise) {
             this.cube.top[6] = this.cube.left[8];
@@ -419,10 +539,16 @@ class CubePuzzleGame {
             this.cube.left[5] = temp[7];
             this.cube.left[8] = temp[6];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateBack(clockwise = true) {
+    async rotateBack(clockwise = true) {
         this.rotateFace(this.cube.back, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.z === 0);
+        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? 90 : -90);
+        
         const temp = [this.cube.top[0], this.cube.top[1], this.cube.top[2]];
         if (clockwise) {
             this.cube.top[0] = this.cube.right[2];
@@ -457,10 +583,16 @@ class CubePuzzleGame {
             this.cube.right[5] = temp[1];
             this.cube.right[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateLeft(clockwise = true) {
+    async rotateLeft(clockwise = true) {
         this.rotateFace(this.cube.left, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.x === 0);
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? 90 : -90);
+        
         const temp = [this.cube.top[0], this.cube.top[3], this.cube.top[6]];
         if (clockwise) {
             this.cube.top[0] = this.cube.back[8];
@@ -495,10 +627,16 @@ class CubePuzzleGame {
             this.cube.back[5] = temp[3];
             this.cube.back[8] = temp[0];
         }
+        
+        this.updateCubieColors();
     }
 
-    rotateRight(clockwise = true) {
+    async rotateRight(clockwise = true) {
         this.rotateFace(this.cube.right, clockwise);
+        
+        const layerCubies = this.cubies.filter(c => c.position.x === 2);
+        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? -90 : 90);
+        
         const temp = [this.cube.top[2], this.cube.top[5], this.cube.top[8]];
         if (clockwise) {
             this.cube.top[2] = this.cube.front[2];
@@ -533,6 +671,8 @@ class CubePuzzleGame {
             this.cube.front[5] = temp[1];
             this.cube.front[8] = temp[2];
         }
+        
+        this.updateCubieColors();
     }
 
     checkWinCondition() {
@@ -559,7 +699,7 @@ class CubePuzzleGame {
 
     showHint() {
         const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 드래그로 큐브를 회전하고, 버튼으로 면을 돌리세요!';
+        message.textContent = '💡 힌트: 2개 손가락으로 드래그하면 큐브를 회전할 수 있습니다!';
         message.classList.remove('hidden');
         
         setTimeout(() => {
@@ -572,12 +712,29 @@ class CubePuzzleGame {
         this.moveCount = 0;
         document.getElementById('moves').textContent = '0';
         document.getElementById('message').classList.add('hidden');
+        
+        // Reset all cubie positions
+        this.cubies.forEach((cubie, index) => {
+            const x = Math.floor(index / 9);
+            const y = Math.floor((index % 9) / 3);
+            const z = index % 3;
+            
+            cubie.position = { x, y, z };
+            cubie.rotation = { x: 0, y: 0, z: 0 };
+            
+            const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
+            const posX = x * (this.cubieSize + this.gap) + offset;
+            const posY = -y * (this.cubieSize + this.gap) - offset;
+            const posZ = z * (this.cubieSize + this.gap) + offset;
+            
+            cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
+        });
+        
         this.updateCubieColors();
         setTimeout(() => this.scrambleCube(), 100);
     }
 
     onWindowResize() {
-        // Adjust cube size if needed based on viewport
         const size = Math.min(window.innerWidth * 0.8, 300);
         this.cubeElement.style.width = size + 'px';
         this.cubeElement.style.height = size + 'px';
