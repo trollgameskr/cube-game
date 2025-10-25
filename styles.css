@@ -452,3 +452,191 @@ body.focus-mode #focus-exit-btn {
     opacity: 1;
     transform: translateY(-1px);
 }
+
+/* Leaderboard Styles */
+.leaderboard-section {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: clamp(1.25rem, 2vw, 1.75rem);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 22px 40px rgba(8, 15, 33, 0.35);
+}
+
+.leaderboard-section h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.5rem;
+}
+
+.leaderboard-description {
+    margin: 0 0 1rem;
+    opacity: 0.85;
+    font-size: 0.9rem;
+}
+
+.leaderboard-status {
+    padding: 0.8rem 1rem;
+    background: rgba(14, 165, 233, 0.12);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.leaderboard-status.error {
+    background: rgba(248, 113, 113, 0.12);
+    border-left-color: var(--danger);
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.leaderboard-entry {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.leaderboard-entry:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+}
+
+.leaderboard-entry.rank-1 {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.15), rgba(251, 191, 36, 0.08));
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
+.leaderboard-entry.rank-2 {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.15), rgba(203, 213, 225, 0.08));
+    border-color: rgba(148, 163, 184, 0.3);
+}
+
+.leaderboard-entry.rank-3 {
+    background: linear-gradient(135deg, rgba(205, 127, 50, 0.15), rgba(217, 119, 6, 0.08));
+    border-color: rgba(205, 127, 50, 0.3);
+}
+
+.leaderboard-rank {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+    text-align: center;
+}
+
+.leaderboard-entry.rank-1 .leaderboard-rank {
+    color: #facc15;
+}
+
+.leaderboard-entry.rank-2 .leaderboard-rank {
+    color: #cbd5e1;
+}
+
+.leaderboard-entry.rank-3 .leaderboard-rank {
+    color: #d97706;
+}
+
+.leaderboard-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-moves,
+.leaderboard-time {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    font-family: monospace;
+}
+
+.leaderboard-actions {
+    display: flex;
+    justify-content: center;
+}
+
+/* Victory Modal Styles */
+.victory-message {
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 1.5rem;
+    color: var(--success);
+}
+
+.victory-stats {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.victory-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: rgba(14, 165, 233, 0.12);
+    border-radius: 12px;
+    border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+.victory-stat-label {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    margin-bottom: 0.3rem;
+}
+
+.victory-stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: monospace;
+}
+
+.nickname-input-section {
+    margin-bottom: 1.5rem;
+}
+
+.nickname-input-section label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.nickname-input-section input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    color: var(--text);
+    font-size: 1rem;
+    transition: border-color var(--transition), background var(--transition);
+}
+
+.nickname-input-section input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(14, 165, 233, 0.15);
+}
+
+.nickname-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.85rem;
+    opacity: 0.75;
+    font-style: italic;
+}

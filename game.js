@@ -21,6 +21,20 @@
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
 
+	// Victory modal elements
+	const victoryModal = document.getElementById('victory-modal');
+	const closeVictoryModalBtn = document.getElementById('close-victory-modal-btn');
+	const victoryMoveCount = document.getElementById('victory-move-count');
+	const victoryTime = document.getElementById('victory-time');
+	const nicknameInput = document.getElementById('nickname-input');
+	const saveScoreBtn = document.getElementById('save-score-btn');
+	const skipLeaderboardBtn = document.getElementById('skip-leaderboard-btn');
+
+	// Leaderboard elements
+	const leaderboardList = document.getElementById('leaderboard-list');
+	const leaderboardStatus = document.getElementById('leaderboard-status');
+	const refreshLeaderboardBtn = document.getElementById('refresh-leaderboard-btn');
+
 	if (!stageEl || !moveCountEl || !moveLogEl || !messageEl) {
 		console.error('Required DOM elements are missing.');
 		return;
@@ -64,7 +78,10 @@
 		latestMessage: '섞기 버튼으로 게임을 시작하세요!',
 		moveHistory: [],
 		isRotating: false,
-		isBackFaceView: false
+		isBackFaceView: false,
+		gameStartTime: null,
+		gameInProgress: false,
+		lastGameTime: 0
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -411,6 +428,8 @@
 			resetCube();
 			state.moveHistory.length = 0;
 			state.moveCount = 0;
+			state.gameInProgress = false;
+			state.gameStartTime = null;
 			updateHud();
 			setMessage('큐브가 초기화되었습니다.');
 		});
@@ -1111,9 +1130,16 @@
 			notation: move.notation
 		});
 		state.moveCount += 1;
+		
+		// Start game timer on first move
+		if (!state.gameInProgress && state.moveCount === 1) {
+			state.gameInProgress = true;
+			state.gameStartTime = Date.now();
+		}
+		
 		updateHud(move.notation);
 		if (isCubeSolved()) {
-			setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
+			handleVictory();
 		} else {
 			setMessage(`${move.notation} 수행!`);
 		}
@@ -1147,6 +1173,19 @@
 			);
 			return basisMatrix.equals(initialBasis);
 		});
+	}
+
+	function handleVictory() {
+		state.gameInProgress = false;
+		const gameTime = Math.floor((Date.now() - state.gameStartTime) / 1000);
+		state.lastGameTime = gameTime;
+		
+		setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
+		
+		// Open victory modal after a short delay
+		setTimeout(() => {
+			openVictoryModal(state.moveCount, gameTime);
+		}, 800);
 	}
 
 	function scrambleCube() {
@@ -1183,6 +1222,8 @@
 
 		state.moveHistory.length = 0;
 		state.moveCount = 0;
+		state.gameInProgress = false;
+		state.gameStartTime = null;
 		updateHud();
 		setMessage('큐브를 섞는 중...');
 
@@ -1293,4 +1334,193 @@
 			onResize();
 		}, 100);
 	}
+
+	// ===== Leaderboard Functions =====
+	
+	async function loadLeaderboard() {
+		if (!window.firebaseDb) {
+			leaderboardStatus.textContent = 'Firebase 연결 대기 중...';
+			leaderboardStatus.classList.add('error');
+			return;
+		}
+
+		try {
+			leaderboardStatus.textContent = '순위표 불러오는 중...';
+			leaderboardStatus.classList.remove('error');
+			
+			const { collection, query, orderBy, limit, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+			
+			const scoresRef = collection(window.firebaseDb, 'scores');
+			const q = query(scoresRef, orderBy('moves', 'asc'), orderBy('time', 'asc'), limit(10));
+			const querySnapshot = await getDocs(q);
+			
+			leaderboardList.innerHTML = '';
+			
+			if (querySnapshot.empty) {
+				leaderboardList.innerHTML = '<p style="text-align: center; opacity: 0.7; padding: 1rem;">아직 등록된 기록이 없습니다. 첫 번째 기록을 세워보세요!</p>';
+				leaderboardStatus.textContent = '기록이 없습니다.';
+			} else {
+				let rank = 1;
+				querySnapshot.forEach((doc) => {
+					const data = doc.data();
+					const entry = createLeaderboardEntry(rank, data.nickname, data.moves, data.time);
+					leaderboardList.appendChild(entry);
+					rank++;
+				});
+				leaderboardStatus.textContent = `${querySnapshot.size}개의 기록을 불러왔습니다.`;
+			}
+		} catch (error) {
+			console.error('Failed to load leaderboard:', error);
+			leaderboardStatus.textContent = '순위표를 불러오는데 실패했습니다. (데모 모드)';
+			leaderboardStatus.classList.add('error');
+			
+			// Show demo data
+			showDemoLeaderboard();
+		}
+	}
+
+	function showDemoLeaderboard() {
+		leaderboardList.innerHTML = '';
+		const demoData = [
+			{ nickname: '큐브마스터', moves: 45, time: 123 },
+			{ nickname: '퍼즐왕', moves: 52, time: 156 },
+			{ nickname: '스피드큐버', moves: 58, time: 98 },
+			{ nickname: 'CubeNinja', moves: 61, time: 145 },
+			{ nickname: '3D전문가', moves: 67, time: 178 }
+		];
+		
+		demoData.forEach((data, index) => {
+			const entry = createLeaderboardEntry(index + 1, data.nickname, data.moves, data.time);
+			leaderboardList.appendChild(entry);
+		});
+	}
+
+	function createLeaderboardEntry(rank, nickname, moves, timeInSeconds) {
+		const entry = document.createElement('div');
+		entry.className = `leaderboard-entry rank-${rank}`;
+		
+		const rankEl = document.createElement('div');
+		rankEl.className = 'leaderboard-rank';
+		rankEl.textContent = rank;
+		
+		const nameEl = document.createElement('div');
+		nameEl.className = 'leaderboard-name';
+		nameEl.textContent = nickname;
+		
+		const movesEl = document.createElement('div');
+		movesEl.className = 'leaderboard-moves';
+		movesEl.textContent = `${moves}회`;
+		
+		const timeEl = document.createElement('div');
+		timeEl.className = 'leaderboard-time';
+		timeEl.textContent = formatTime(timeInSeconds);
+		
+		entry.appendChild(rankEl);
+		entry.appendChild(nameEl);
+		entry.appendChild(movesEl);
+		entry.appendChild(timeEl);
+		
+		return entry;
+	}
+
+	function formatTime(seconds) {
+		const mins = Math.floor(seconds / 60);
+		const secs = seconds % 60;
+		return `${mins}:${secs.toString().padStart(2, '0')}`;
+	}
+
+	function openVictoryModal(moves, timeInSeconds) {
+		victoryMoveCount.textContent = moves;
+		victoryTime.textContent = formatTime(timeInSeconds);
+		
+		// Load saved nickname if available
+		const savedNickname = localStorage.getItem('cubeGameNickname') || '';
+		nicknameInput.value = savedNickname;
+		
+		victoryModal.style.display = 'flex';
+	}
+
+	function closeVictoryModal() {
+		victoryModal.style.display = 'none';
+	}
+
+	async function saveScore() {
+		const nickname = nicknameInput.value.trim();
+		
+		if (!nickname) {
+			alert('닉네임을 입력해주세요!');
+			nicknameInput.focus();
+			return;
+		}
+		
+		// Save nickname for future use
+		localStorage.setItem('cubeGameNickname', nickname);
+		
+		// Use the stored game time from when victory was achieved
+		const gameTime = state.lastGameTime;
+		
+		if (!window.firebaseDb) {
+			setMessage('Firebase에 연결할 수 없습니다. (데모 모드)');
+			closeVictoryModal();
+			return;
+		}
+
+		try {
+			const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+			
+			await addDoc(collection(window.firebaseDb, 'scores'), {
+				nickname: nickname,
+				moves: state.moveCount,
+				time: gameTime,
+				timestamp: serverTimestamp()
+			});
+			
+			setMessage(`${nickname}님의 기록이 순위표에 등록되었습니다!`);
+			closeVictoryModal();
+			
+			// Refresh leaderboard
+			setTimeout(() => loadLeaderboard(), 500);
+		} catch (error) {
+			console.error('Failed to save score:', error);
+			setMessage('기록 저장에 실패했습니다. (데모 모드)');
+			closeVictoryModal();
+		}
+	}
+
+	// Bind victory modal events
+	if (closeVictoryModalBtn) {
+		closeVictoryModalBtn.addEventListener('click', closeVictoryModal);
+	}
+
+	if (saveScoreBtn) {
+		saveScoreBtn.addEventListener('click', saveScore);
+	}
+
+	if (skipLeaderboardBtn) {
+		skipLeaderboardBtn.addEventListener('click', closeVictoryModal);
+	}
+
+	if (victoryModal) {
+		victoryModal.addEventListener('click', (event) => {
+			if (event.target === victoryModal) {
+				closeVictoryModal();
+			}
+		});
+	}
+
+	if (nicknameInput) {
+		nicknameInput.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				saveScore();
+			}
+		});
+	}
+
+	// Bind leaderboard refresh button
+	if (refreshLeaderboardBtn) {
+		refreshLeaderboardBtn.addEventListener('click', loadLeaderboard);
+	}
+
+	// Load leaderboard on startup
+	setTimeout(() => loadLeaderboard(), 1000);
 })();
