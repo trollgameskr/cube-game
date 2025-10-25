@@ -640,3 +640,8 @@ body.focus-mode #focus-exit-btn {
     opacity: 0.75;
     font-style: italic;
 }
+
+/* Hide close button in victory modal to prevent closing without saving or skipping */
+#victory-modal .modal-close {
+    display: none;
+}

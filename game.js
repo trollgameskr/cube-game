@@ -75,7 +75,7 @@
 
 	const state = {
 		moveCount: 0,
-		latestMessage: '섞기 버튼으로 게임을 시작하세요!',
+		latestMessage: '게임을 초기화하는 중...',
 		moveHistory: [],
 		isRotating: false,
 		isBackFaceView: false,
@@ -154,6 +154,13 @@
 
 	setMessage(state.latestMessage);
 	animate();
+
+	// Auto-scramble on game initialization to prevent cheating
+	// Delay allows the 3D scene to fully render before scrambling begins
+	const AUTO_SCRAMBLE_DELAY_MS = 500;
+	setTimeout(() => {
+		scrambleCube();
+	}, AUTO_SCRAMBLE_DELAY_MS);
 
 	function addEnvironment() {
 		scene.add(new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.85));
@@ -1488,8 +1495,9 @@
 	}
 
 	// Bind victory modal events
+	// Note: Close button (X) is disabled - users must click "Skip" or "Save"
 	if (closeVictoryModalBtn) {
-		closeVictoryModalBtn.addEventListener('click', closeVictoryModal);
+		// Disabled: closeVictoryModalBtn.addEventListener('click', closeVictoryModal);
 	}
 
 	if (saveScoreBtn) {
@@ -1500,12 +1508,14 @@
 		skipLeaderboardBtn.addEventListener('click', closeVictoryModal);
 	}
 
+	// Victory modal cannot be closed by clicking outside
+	// Users must explicitly choose "Skip" or "Save"
 	if (victoryModal) {
-		victoryModal.addEventListener('click', (event) => {
-			if (event.target === victoryModal) {
-				closeVictoryModal();
-			}
-		});
+		// Disabled: victoryModal.addEventListener('click', (event) => {
+		// 	if (event.target === victoryModal) {
+		// 		closeVictoryModal();
+		// 	}
+		// });
 	}
 
 	if (nicknameInput) {
