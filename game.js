@@ -1380,7 +1380,8 @@
 				axis: candidate.axis,
 				layer: candidate.layer,
 				direction: Math.random() > 0.5 ? 1 : -1,
-				record: false
+				record: false,
+				duration: 10
 			});
 		}
 
