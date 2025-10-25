@@ -884,7 +884,9 @@
 
 	function deriveDirectionFromAngleSign(angleSign, layer) {
 		// The angleSign is already determined by testing which rotation direction
-		// best matches the drag vector, so we use it directly
+		// best matches the drag vector, so we use it directly.
+		// Previously this function was applying an unnecessary inversion transformation
+		// that caused rotations to go in the opposite direction from the drag.
 		return angleSign;
 	}
 
