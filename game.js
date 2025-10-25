@@ -788,70 +788,73 @@
 		const { intersection } = stateObj;
 		const { cubelet, point, normal } = intersection;
 
-		const axisName = dominantAxisFromNormal(normal);
-		const axisVector = AXIS_VECTORS[axisName];
-		const layer = Math.round(cubelet.logicalPosition[axisName]);
-		if (!layer) {
-			return null;
-		}
-
-		const tangentA = new THREE.Vector3(0, 1, 0);
+		// Calculate two orthogonal tangent vectors on the clicked face
+		// These represent the two possible drag directions on the face
+		let tangentA = new THREE.Vector3(0, 1, 0);
 		if (Math.abs(tangentA.dot(normal)) > 0.9) {
 			tangentA.set(1, 0, 0);
 		}
 		tangentA.cross(normal).normalize();
 		const tangentB = new THREE.Vector3().crossVectors(normal, tangentA).normalize();
 
-		const projections = [
-			projectDirectionToScreen(point, tangentA),
-			projectDirectionToScreen(point, tangentB)
-		];
+		// Project both tangent directions to screen space to see which matches the drag
+		const projectionA = projectDirectionToScreen(point, tangentA);
+		const projectionB = projectDirectionToScreen(point, tangentB);
 
 		const dragLength = dragVec.length();
 		if (dragLength === 0) {
 			return null;
 		}
 
-		const alignment = projections.map((proj) => {
-			const denom = proj.length() * dragLength;
-			if (!denom) {
-				return { score: 0, sign: 0 };
-			}
-			const scoreRaw = proj.dot(dragVec) / denom;
-			return { score: Math.abs(scoreRaw), sign: Math.sign(scoreRaw) || 1 };
-		});
+		// Calculate alignment scores for both tangent directions
+		const scoreA = projectionA.dot(dragVec) / (projectionA.length() * dragLength || 1);
+		const scoreB = projectionB.dot(dragVec) / (projectionB.length() * dragLength || 1);
 
-		const dominantIndex = alignment[0].score >= alignment[1].score ? 0 : 1;
-		const dominantTangent = dominantIndex === 0 ? tangentA : tangentB;
-		const dominantSign = alignment[dominantIndex].sign || 1;
-
-		// For front face (z-axis, layer=1), rotate adjacent faces instead
-		let finalAxis = axisName;
-		let finalLayer = layer;
+		// Choose the tangent direction that best aligns with the drag
+		let dragTangent3D;
+		let rotationAxis3D;
 		
-		if (axisName === 'z' && layer === 1) {
-			// Determine which adjacent axis to use based on dominant tangent
-			// tangentA and tangentB are perpendicular to the front face normal
-			const absX = Math.abs(dominantTangent.x);
-			const absY = Math.abs(dominantTangent.y);
-			
-			if (absX > absY) {
-				// Horizontal drag → rotate left/right face (x-axis)
-				finalAxis = 'x';
-				// dominantTangent.x > 0 means dragging right → rotate right face (layer 1)
-				// dominantTangent.x < 0 means dragging left → rotate left face (layer -1)
-				finalLayer = dominantTangent.x > 0 ? 1 : -1;
-			} else {
-				// Vertical drag → rotate up/down face (y-axis)
-				finalAxis = 'y';
-				// dominantTangent.y > 0 means dragging up → rotate up face (layer 1)
-				// dominantTangent.y < 0 means dragging down → rotate down face (layer -1)
-				finalLayer = dominantTangent.y > 0 ? 1 : -1;
-			}
+		if (Math.abs(scoreA) >= Math.abs(scoreB)) {
+			// Drag is primarily along tangentA
+			dragTangent3D = tangentA.clone().multiplyScalar(Math.sign(scoreA));
+			// Rotation axis is perpendicular to both normal and dragTangent
+			// This is tangentB (or -tangentB depending on orientation)
+			rotationAxis3D = new THREE.Vector3().crossVectors(normal, dragTangent3D).normalize();
+		} else {
+			// Drag is primarily along tangentB
+			dragTangent3D = tangentB.clone().multiplyScalar(Math.sign(scoreB));
+			// Rotation axis is perpendicular to both normal and dragTangent
+			rotationAxis3D = new THREE.Vector3().crossVectors(normal, dragTangent3D).normalize();
 		}
 
-		const finalAxisVector = AXIS_VECTORS[finalAxis];
-		const samplePoint = point.clone().add(dominantTangent.clone().multiplyScalar(0.35));
+		// Determine which of the three cube axes (x, y, z) best matches the rotation axis
+		const absX = Math.abs(rotationAxis3D.x);
+		const absY = Math.abs(rotationAxis3D.y);
+		const absZ = Math.abs(rotationAxis3D.z);
+
+		let rotationAxisName;
+		let rotationLayer;
+
+		if (absX >= absY && absX >= absZ) {
+			rotationAxisName = 'x';
+			// Layer is determined by the cubelet's position on this axis
+			rotationLayer = Math.round(cubelet.logicalPosition.x);
+		} else if (absY >= absX && absY >= absZ) {
+			rotationAxisName = 'y';
+			rotationLayer = Math.round(cubelet.logicalPosition.y);
+		} else {
+			rotationAxisName = 'z';
+			rotationLayer = Math.round(cubelet.logicalPosition.z);
+		}
+
+		// Only allow rotation of edge layers (not the center)
+		if (!rotationLayer) {
+			return null;
+		}
+
+		// Determine the rotation direction by testing which way matches the drag best
+		const rotationAxisVector = AXIS_VECTORS[rotationAxisName];
+		const samplePoint = point.clone().add(dragTangent3D.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
 		const screenStart = projectPointToScreen(samplePoint);
 
@@ -859,8 +862,9 @@
 		let bestScore = -Infinity;
 		const normalizedDrag = dragVec.clone().normalize();
 
+		// Test both rotation directions to see which one makes the point follow the drag
 		for (const sign of [1, -1]) {
-			const rotatedPoint = rotatePointAroundAxis(samplePoint, finalAxisVector, sign * baseAngle);
+			const rotatedPoint = rotatePointAroundAxis(samplePoint, rotationAxisVector, sign * baseAngle);
 			const rotatedScreen = projectPointToScreen(rotatedPoint);
 			const predicted = rotatedScreen.sub(screenStart);
 			if (predicted.lengthSq() === 0) {
@@ -875,14 +879,15 @@
 		}
 
 		if (bestSign === null) {
-			bestSign = dominantSign;
+			bestSign = 1;
 		}
 
-		const direction = deriveDirectionFromAngleSign(bestSign, finalLayer);
+		// Convert the rotation sign to the final direction
+		const direction = deriveDirectionFromAngleSign(bestSign, rotationLayer);
 
 		return {
-			axis: finalAxis,
-			layer: finalLayer,
+			axis: rotationAxisName,
+			layer: rotationLayer,
 			direction
 		};
 	}
