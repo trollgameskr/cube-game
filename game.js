@@ -23,7 +23,7 @@ class CubePuzzleGame {
             2: '#00FF00', // Green - Left (x=0)
             3: '#0000FF', // Blue - Right (x=2)
             4: '#FFFF00', // Yellow - Top (y=0)
-            5: '#FFFFFF'  // White - Bottom (y=2)
+            5: '#FF00FF'  // Magenta - Bottom (y=2)
         };
         
         this.init();
@@ -96,8 +96,8 @@ class CubePuzzleGame {
             { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${this.cubieSize/2}px` },
             { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
             { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
+            { name: 'top', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'bottom', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
         ];
         
         const faceElements = {};
