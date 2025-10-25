@@ -199,39 +199,41 @@ class CubePuzzleGame {
         // Determine primary drag direction
         const isDragHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
         
-        // Based on cube orientation and drag direction, determine the move
-        // Simplified: we'll map common drag patterns to moves
-        // This is a basic implementation - could be enhanced with view rotation awareness
+        // Based on cubie position and drag direction, determine the move
+        // Priority: outer layers first, then check if on face
         
         if (isDragHorizontal) {
-            // Horizontal drag
+            // Horizontal drag - affects top/bottom or front/back layers
             if (deltaX > 0) {
                 // Drag right
-                if (y === 0) return 'U';
-                if (y === 2) return 'Di';
-                if (z === 2) return 'F';
-                if (z === 0) return 'Bi';
+                if (y === 0) return 'U';        // Top layer
+                if (y === 2) return 'Di';       // Bottom layer (inverse)
             } else {
                 // Drag left
-                if (y === 0) return 'Ui';
-                if (y === 2) return 'D';
-                if (z === 2) return 'Fi';
-                if (z === 0) return 'B';
+                if (y === 0) return 'Ui';       // Top layer (inverse)
+                if (y === 2) return 'D';        // Bottom layer
             }
         } else {
-            // Vertical drag
+            // Vertical drag - affects left/right or front/back layers
             if (deltaY > 0) {
                 // Drag down
-                if (x === 0) return 'L';
-                if (x === 2) return 'Ri';
-                if (z === 2) return 'Fi';
-                if (z === 0) return 'B';
+                if (x === 0) return 'L';        // Left layer
+                if (x === 2) return 'Ri';       // Right layer (inverse)
             } else {
                 // Drag up
-                if (x === 0) return 'Li';
-                if (x === 2) return 'R';
-                if (z === 2) return 'F';
-                if (z === 0) return 'Bi';
+                if (x === 0) return 'Li';       // Left layer (inverse)
+                if (x === 2) return 'R';        // Right layer
+            }
+        }
+        
+        // For middle layers or ambiguous positions, use front/back as fallback
+        if (isDragHorizontal) {
+            if (deltaX > 0) {
+                if (z === 2) return 'F';        // Front layer
+                if (z === 0) return 'Bi';       // Back layer (inverse)
+            } else {
+                if (z === 2) return 'Fi';       // Front layer (inverse)
+                if (z === 0) return 'B';        // Back layer
             }
         }
         
