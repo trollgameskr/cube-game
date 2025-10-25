@@ -645,3 +645,155 @@ body.focus-mode #focus-exit-btn {
 #victory-modal .modal-close {
     display: none;
 }
+
+/* Guide Modal Styles */
+.guide-modal-content {
+    max-width: 800px;
+    max-height: 85vh;
+}
+
+.guide-modal-body {
+    padding: 0;
+}
+
+.guide-intro {
+    padding: 1.5rem;
+    background: rgba(56, 189, 248, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.guide-intro p {
+    margin: 0 0 0.75rem;
+    line-height: 1.6;
+}
+
+.guide-intro p:last-child {
+    margin-bottom: 0;
+}
+
+.guide-note {
+    padding: 0.75rem;
+    background: rgba(251, 191, 36, 0.15);
+    border-left: 3px solid #facc15;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.guide-section {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.guide-section:last-child {
+    border-bottom: none;
+}
+
+.guide-section h3 {
+    margin: 0 0 1rem;
+    font-size: 1.3rem;
+    color: var(--accent);
+}
+
+.guide-section h4 {
+    margin: 1rem 0 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text);
+}
+
+.guide-content {
+    color: rgba(248, 250, 252, 0.9);
+}
+
+.guide-content > p {
+    margin: 0 0 1rem;
+    line-height: 1.6;
+}
+
+.guide-content ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.guide-content li {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+}
+
+.guide-steps {
+    margin-top: 1rem;
+}
+
+.guide-step {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+}
+
+.step-number {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #0f172a;
+    border-radius: 50%;
+    font-weight: bold;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content p {
+    margin: 0 0 0.5rem;
+    line-height: 1.5;
+}
+
+.step-content p:last-child {
+    margin-bottom: 0;
+}
+
+.algorithm {
+    font-family: 'Courier New', monospace;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: var(--accent);
+    font-weight: bold;
+}
+
+/* Responsive adjustments for guide modal */
+@media (max-width: 768px) {
+    .guide-modal-content {
+        max-width: 95%;
+        max-height: 90vh;
+    }
+    
+    .guide-section {
+        padding: 1rem;
+    }
+    
+    .guide-intro {
+        padding: 1rem;
+    }
+    
+    .guide-section h3 {
+        font-size: 1.2rem;
+    }
+    
+    .guide-step {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .step-number {
+        align-self: flex-start;
+    }
+}
