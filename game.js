@@ -803,8 +803,8 @@
 			if (Math.abs(angleDelta) > 0.01) {
 				// Rotate camera around the viewing axis (theta rotation)
 				orbitState.theta += angleDelta;
-				// Normalize theta to prevent overflow
-				orbitState.theta = orbitState.theta % (2 * Math.PI);
+				// Normalize theta to [0, 2π] to prevent overflow
+				orbitState.theta = ((orbitState.theta % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
 				updateCameraPosition();
 			}
 		}
