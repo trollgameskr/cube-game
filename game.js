@@ -64,7 +64,7 @@
 		latestMessage: '섞기 버튼으로 게임을 시작하세요!',
 		moveHistory: [],
 		isRotating: false,
-		isTransparent: false
+		isBackFaceView: false
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -479,25 +479,44 @@
 		});
 	}
 
-	function toggleTransparency() {
-		state.isTransparent = !state.isTransparent;
-		const opacity = state.isTransparent ? 0.3 : 1.0;
+	function toggleBackFaceView() {
+		state.isBackFaceView = !state.isBackFaceView;
 		
 		cubelets.forEach((cubelet) => {
 			if (Array.isArray(cubelet.mesh.material)) {
 				cubelet.mesh.material.forEach((material) => {
-					material.transparent = true;
-					material.opacity = opacity;
+					if (state.isBackFaceView) {
+						// In back face view mode:
+						// - Hide interior (base color) faces
+						// - Show back faces of colored materials
+						if (material.color.getHex() === COLORS.base) {
+							material.visible = false;
+						} else {
+							material.side = THREE.BackSide;
+						}
+					} else {
+						// In front face view mode: restore default
+						material.visible = true;
+						material.side = THREE.FrontSide;
+					}
 					material.needsUpdate = true;
 				});
 			} else {
-				cubelet.mesh.material.transparent = true;
-				cubelet.mesh.material.opacity = opacity;
+				if (state.isBackFaceView) {
+					if (cubelet.mesh.material.color.getHex() === COLORS.base) {
+						cubelet.mesh.material.visible = false;
+					} else {
+						cubelet.mesh.material.side = THREE.BackSide;
+					}
+				} else {
+					cubelet.mesh.material.visible = true;
+					cubelet.mesh.material.side = THREE.FrontSide;
+				}
 				cubelet.mesh.material.needsUpdate = true;
 			}
 		});
 		
-		setMessage(state.isTransparent ? '메시가 반투명으로 변경되었습니다.' : '메시가 불투명으로 변경되었습니다.');
+		setMessage(state.isBackFaceView ? '뒷면 보기 모드가 활성화되었습니다.' : '앞면 보기 모드로 변경되었습니다.');
 	}
 
 	function bindKeyboardShortcuts() {
@@ -523,10 +542,13 @@
 			if (event.code === 'Escape') {
 				event.preventDefault();
 				toggleFocusMode();
-			// Check for transparency toggle
+				return;
+			}
+
+			// Check for back face view toggle
 			if (event.code === keyboardSettings.toggleTransparency) {
 				event.preventDefault();
-				toggleTransparency();
+				toggleBackFaceView();
 				return;
 			}
 
