@@ -1,975 +1,1011 @@
-// 3x3 Cube Puzzle Game - Complete Rotation Logic Implementation
-class CubePuzzleGame {
-    constructor() {
-        this.container = null;
-        this.cube = this.createSolvedCube();
-        this.cubeElement = null;
-        this.cubies = []; // Individual 3x3x3 = 27 small cubes
-        this.rotation = { x: -30, y: -45 };
-        this.moveCount = 0;
-        this.isAnimating = false;
-        this.cubieSize = 95;
-        this.gap = 5;
-        
-        // Touch control state
-        this.touchStartPos = null;
-        this.touchStartCubie = null;
-        this.isDraggingView = false;
-        this.isPanning = false;
-        this.previousMousePosition = { x: 0, y: 0 };
-        this.initialTouchDistance = 0;
-        this.panOffset = { x: 0, y: 0 };
-        this.draggedLayer = null;
-        
-        this.colors = {
-            0: '#FF0000', // Red - Front (z=2)
-            1: '#FF8800', // Orange - Back (z=0)
-            2: '#00FF00', // Green - Left (x=0)
-            3: '#0000FF', // Blue - Right (x=2)
-            4: '#FFFF00', // Yellow - Top (y=0)
-            5: '#FF00FF'  // Magenta - Bottom (y=2)
-        };
-        
-        this.init();
-    }
+(() => {
+	'use strict';
 
-    init() {
-        this.setupScene();
-        this.setupCube();
-        this.setupControls();
-        this.scrambleCube();
-        this.updateCubeRotation();
-    }
+	if (!window.THREE) {
+		console.error('Three.js failed to load.');
+		return;
+	}
 
-    setupScene() {
-        this.container = document.getElementById('canvas-container');
-        this.container.style.perspective = '1000px';
-        this.container.style.perspectiveOrigin = '50% 50%';
-        
-        this.cubeElement = document.createElement('div');
-        this.cubeElement.className = 'cube-3d';
-        this.cubeElement.style.cssText = `
-            position: relative;
-            width: 300px;
-            height: 300px;
-            transform-style: preserve-3d;
-            margin: 0 auto;
-        `;
-        
-        this.container.appendChild(this.cubeElement);
-    }
+	const stageEl = document.getElementById('cube-stage');
+	const moveCountEl = document.getElementById('move-count');
+	const moveLogEl = document.getElementById('move-log');
+	const messageEl = document.getElementById('message');
+	const scrambleBtn = document.getElementById('scramble-btn');
+	const resetBtn = document.getElementById('reset-btn');
+	const hintBtn = document.getElementById('hint-btn');
 
-    setupCube() {
-        this.cubies = [];
-        
-        // Create 27 small cubes (3x3x3)
-        for (let x = 0; x < 3; x++) {
-            for (let y = 0; y < 3; y++) {
-                for (let z = 0; z < 3; z++) {
-                    const cubie = this.createCubie(x, y, z);
-                    this.cubies.push(cubie);
-                    this.cubeElement.appendChild(cubie.element);
-                }
-            }
-        }
-        
-        this.updateCubieColors();
-    }
+	if (!stageEl || !moveCountEl || !moveLogEl || !messageEl) {
+		console.error('Required DOM elements are missing.');
+		return;
+	}
 
-    createCubie(x, y, z) {
-        const cubie = document.createElement('div');
-        cubie.className = 'cubie';
-        
-        const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-        const posX = x * (this.cubieSize + this.gap) + offset;
-        const posY = -y * (this.cubieSize + this.gap) - offset;
-        const posZ = z * (this.cubieSize + this.gap) + offset;
-        
-        cubie.style.cssText = `
-            position: absolute;
-            width: ${this.cubieSize}px;
-            height: ${this.cubieSize}px;
-            transform-style: preserve-3d;
-            transform: translate3d(${posX}px, ${posY}px, ${posZ}px);
-            transition: transform 0.3s ease-out;
-        `;
-        
-        // Create 6 faces for each cubie
-        const faces = [
-            { name: 'front', rotation: 'rotateY(0deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'top', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'bottom', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
-        ];
-        
-        const faceElements = {};
-        faces.forEach(face => {
-            const faceEl = document.createElement('div');
-            faceEl.className = `face face-${face.name}`;
-            faceEl.style.cssText = `
-                position: absolute;
-                width: ${this.cubieSize}px;
-                height: ${this.cubieSize}px;
-                background: #000;
-                border: 2px solid #222;
-                transform: ${face.rotation} translate3d(${face.translate});
-                backface-visibility: hidden;
-            `;
-            cubie.appendChild(faceEl);
-            faceElements[face.name] = faceEl;
-        });
-        
-        return {
-            element: cubie,
-            faces: faceElements,
-            position: { x, y, z },
-            rotation: { x: 0, y: 0, z: 0 }
-        };
-    }
+	const AXIS_VECTORS = {
+		x: new THREE.Vector3(1, 0, 0),
+		y: new THREE.Vector3(0, 1, 0),
+		z: new THREE.Vector3(0, 0, 1)
+	};
 
-    updateCubieColors() {
-        const faceMapping = {
-            front: { axis: 'z', value: 2 },
-            back: { axis: 'z', value: 0 },
-            left: { axis: 'x', value: 0 },
-            right: { axis: 'x', value: 2 },
-            top: { axis: 'y', value: 0 },
-            bottom: { axis: 'y', value: 2 }
-        };
-        
-        Object.keys(faceMapping).forEach(faceName => {
-            const face = this.cube[faceName];
-            const mapping = faceMapping[faceName];
-            
-            // Get cubies on this face
-            const faceCubies = this.cubies.filter(cubie => 
-                cubie.position[mapping.axis] === mapping.value
-            );
-            
-            // Sort cubies to match the face array order
-            faceCubies.sort((a, b) => {
-                if (mapping.axis === 'z') {
-                    if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-                    return a.position.x - b.position.x;
-                } else if (mapping.axis === 'y') {
-                    if (a.position.z !== b.position.z) return a.position.z - b.position.z;
-                    return a.position.x - b.position.x;
-                } else { // x axis
-                    if (a.position.y !== b.position.y) return a.position.y - b.position.y;
-                    if (mapping.value === 2) return a.position.z - b.position.z;
-                    return b.position.z - a.position.z;
-                }
-            });
-            
-            // Update colors
-            faceCubies.forEach((cubie, index) => {
-                const colorIndex = face[index];
-                const faceEl = cubie.faces[faceName];
-                if (faceEl) {
-                    faceEl.style.background = this.colors[colorIndex];
-                }
-            });
-        });
-    }
+	const FACE_NOTATION = {
+		x: { 1: 'R', '-1': 'L' },
+		y: { 1: 'U', '-1': 'D' },
+		z: { 1: 'F', '-1': 'B' }
+	};
 
-    updateCubeRotation() {
-        this.cubeElement.style.transform = `translate3d(${this.panOffset.x}px, ${this.panOffset.y}px, 0) rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg)`;
-    }
+	const COLORS = {
+		base: 0x1f2937,
+		right: 0xef4444,
+		left: 0xf97316,
+		up: 0xf8fafc,
+		down: 0xfacc15,
+		front: 0x22c55e,
+		back: 0x3b82f6
+	};
 
-    getCubieAtPoint(clientX, clientY) {
-        // Use document.elementFromPoint to find which cubie was clicked
-        const element = document.elementFromPoint(clientX, clientY);
-        if (!element) return null;
-        
-        // Find the cubie element (either the element itself or a parent)
-        let cubieElement = element;
-        while (cubieElement && !cubieElement.classList.contains('cubie')) {
-            cubieElement = cubieElement.parentElement;
-            if (cubieElement === this.cubeElement || !cubieElement) break;
-        }
-        
-        if (!cubieElement || !cubieElement.classList.contains('cubie')) return null;
-        
-        // Find the cubie object
-        return this.cubies.find(c => c.element === cubieElement);
-    }
+	const cubelets = [];
+	const moveQueue = [];
+	const pointerStates = new Map();
 
-    determineLayerMove(cubie, deltaX, deltaY) {
-        // Determine which layer to rotate based on cubie position and drag direction
-        const { x, y, z } = cubie.position;
-        
-        // Determine primary drag direction
-        const isDragHorizontal = Math.abs(deltaX) > Math.abs(deltaY);
-        
-        // Based on cubie position and drag direction, determine the move
-        // Priority: outer layers first, then check if on face
-        
-        if (isDragHorizontal) {
-            // Horizontal drag - affects top/bottom or front/back layers
-            if (deltaX > 0) {
-                // Drag right
-                if (y === 0) return 'U';        // Top layer
-                if (y === 2) return 'Di';       // Bottom layer (inverse)
-            } else {
-                // Drag left
-                if (y === 0) return 'Ui';       // Top layer (inverse)
-                if (y === 2) return 'D';        // Bottom layer
-            }
-        } else {
-            // Vertical drag - affects left/right or front/back layers
-            if (deltaY > 0) {
-                // Drag down
-                if (x === 0) return 'L';        // Left layer
-                if (x === 2) return 'Ri';       // Right layer (inverse)
-            } else {
-                // Drag up
-                if (x === 0) return 'Li';       // Left layer (inverse)
-                if (x === 2) return 'R';        // Right layer
-            }
-        }
-        
-        // For middle layers or ambiguous positions, use front/back as fallback
-        if (isDragHorizontal) {
-            if (deltaX > 0) {
-                if (z === 2) return 'F';        // Front layer
-                if (z === 0) return 'Bi';       // Back layer (inverse)
-            } else {
-                if (z === 2) return 'Fi';       // Front layer (inverse)
-                if (z === 0) return 'B';        // Back layer
-            }
-        } else {
-            // Vertical drag fallback
-            if (deltaY > 0) {
-                if (z === 2) return 'F';        // Front layer
-                if (z === 0) return 'B';        // Back layer
-            } else {
-                if (z === 2) return 'Fi';       // Front layer (inverse)
-                if (z === 0) return 'Bi';       // Back layer (inverse)
-            }
-        }
-        
-        return null;
-    }
+	const raycaster = new THREE.Raycaster();
+	const tmpVec2 = new THREE.Vector2();
+	const tmpVec3 = new THREE.Vector3();
+	const tmpQuat = new THREE.Quaternion();
+	const tmpMatrix4 = new THREE.Matrix4();
+	const tmpMatrix3 = new THREE.Matrix3();
 
-    setupControls() {
-        let touchCount = 0;
-        
-        const getTouchDistance = (touch1, touch2) => {
-            const dx = touch1.clientX - touch2.clientX;
-            const dy = touch1.clientY - touch2.clientY;
-            return Math.sqrt(dx * dx + dy * dy);
-        };
-        
-        const getTouchMidpoint = (touch1, touch2) => {
-            return {
-                x: (touch1.clientX + touch2.clientX) / 2,
-                y: (touch1.clientY + touch2.clientY) / 2
-            };
-        };
-        
-        const onPointerDown = (e) => {
-            if (this.isAnimating) return;
-            
-            if (e.touches) {
-                touchCount = e.touches.length;
-                
-                if (touchCount === 2) {
-                    // Two finger touch - pan movement
-                    this.isPanning = true;
-                    this.isDraggingView = false;
-                    this.initialTouchDistance = getTouchDistance(e.touches[0], e.touches[1]);
-                    const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
-                    this.previousMousePosition = midpoint;
-                    e.preventDefault();
-                    return;
-                }
-                
-                // Single touch
-                touchCount = 1;
-            }
-            
-            // Single touch or mouse - could be layer rotation or view rotation
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            // Check if clicking on a cubie for layer rotation
-            const clickedCubie = this.getCubieAtPoint(clientX, clientY);
-            
-            if (clickedCubie) {
-                // Touching a cubie - prepare for layer rotation
-                this.touchStartPos = { x: clientX, y: clientY };
-                this.touchStartCubie = clickedCubie;
-                this.draggedLayer = null;
-                this.isDraggingView = false;
-            } else {
-                // Empty space - prepare for camera rotation
-                this.touchStartPos = { x: clientX, y: clientY };
-                this.touchStartCubie = null;
-                this.isDraggingView = true;
-                this.previousMousePosition = { x: clientX, y: clientY };
-            }
-        };
+	const state = {
+		moveCount: 0,
+		latestMessage: '섞기 버튼으로 게임을 시작하세요!',
+		moveHistory: [],
+		isRotating: false
+	};
 
-        const onPointerMove = (e) => {
-            if (this.isAnimating) return;
-            
-            if (e.touches) {
-                touchCount = e.touches.length;
-                
-                if (touchCount === 2 && this.isPanning) {
-                    // Two finger pan movement
-                    e.preventDefault();
-                    const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
-                    const deltaX = midpoint.x - this.previousMousePosition.x;
-                    const deltaY = midpoint.y - this.previousMousePosition.y;
-                    
-                    this.panOffset.x += deltaX;
-                    this.panOffset.y += deltaY;
-                    
-                    this.updateCubeRotation();
-                    this.previousMousePosition = midpoint;
-                    return;
-                }
-            }
-            
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
-            if (!this.touchStartPos) return;
-            
-            const deltaX = clientX - this.touchStartPos.x;
-            const deltaY = clientY - this.touchStartPos.y;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            
-            // Check if we should do layer rotation (cubie dragged) or view rotation (empty space dragged)
-            if (this.touchStartCubie && distance > 30 && !this.draggedLayer) {
-                // Dragging a cubie - rotate the layer
-                e.preventDefault();
-                const move = this.determineLayerMove(this.touchStartCubie, deltaX, deltaY);
-                if (move) {
-                    this.draggedLayer = move;
-                    this.executeMove(move, true);
-                }
-            } else if (!this.touchStartCubie && this.isDraggingView && distance > 5) {
-                // Dragging empty space - rotate camera
-                e.preventDefault();
-                this.rotation.y += (clientX - this.previousMousePosition.x) * 0.5;
-                this.rotation.x += (clientY - this.previousMousePosition.y) * 0.5;
-                this.updateCubeRotation();
-                this.previousMousePosition = { x: clientX, y: clientY };
-            }
-        };
+	const cameraTarget = new THREE.Vector3(0, 0, 0);
+	const orbitState = {
+		theta: Math.PI / 4,
+		phi: Math.PI / 4,
+		pointerId: null,
+		startTheta: null,
+		startPhi: null,
+		startPos: null
+	};
 
-        const onPointerUp = () => {
-            this.isDraggingView = false;
-            this.isPanning = false;
-            this.touchStartPos = null;
-            this.touchStartCubie = null;
-            this.draggedLayer = null;
-            touchCount = 0;
-        };
+	const cameraLimits = {
+		minPhi: 0.2,
+		maxPhi: Math.PI - 0.2,
+		minDistance: 3.5,
+		maxDistance: 12
+	};
 
-        this.container.addEventListener('mousedown', onPointerDown);
-        this.container.addEventListener('mousemove', onPointerMove);
-        this.container.addEventListener('mouseup', onPointerUp);
-        this.container.addEventListener('mouseleave', onPointerUp);
+	let cameraDistance = 7.4;
+	let dragState = null;
+	let gestureState = null;
 
-        this.container.addEventListener('touchstart', onPointerDown, { passive: false });
-        this.container.addEventListener('touchmove', onPointerMove, { passive: false });
-        this.container.addEventListener('touchend', onPointerUp);
-        this.container.addEventListener('touchcancel', onPointerUp);
+	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+	renderer.outputColorSpace = THREE.SRGBColorSpace;
+	renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+	renderer.domElement.style.display = 'block';
+	renderer.domElement.style.width = '100%';
+	renderer.domElement.style.height = '100%';
+	renderer.domElement.style.touchAction = 'none';
+	renderer.domElement.setAttribute('aria-label', '3x3 큐브 인터랙티브 캔버스');
+	stageEl.appendChild(renderer.domElement);
 
-        document.getElementById('reset-btn').addEventListener('click', () => this.resetCube());
-        document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
-        
-        // Add rotation buttons
-        this.addRotationButtons();
-        
-        window.addEventListener('resize', () => this.onWindowResize(), false);
-    }
+	const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 80);
+	camera.position.set(5, 4, 7);
+	camera.up.set(0, 1, 0);
 
-    addRotationButtons() {
-        const controls = document.getElementById('controls');
-        const rotationControls = document.createElement('div');
-        rotationControls.id = 'rotation-controls';
-        rotationControls.style.cssText = 'display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; justify-content: center;';
-        
-        const moves = [
-            { label: 'U', move: 'U' }, { label: 'U\'', move: 'Ui' },
-            { label: 'D', move: 'D' }, { label: 'D\'', move: 'Di' },
-            { label: 'L', move: 'L' }, { label: 'L\'', move: 'Li' },
-            { label: 'R', move: 'R' }, { label: 'R\'', move: 'Ri' },
-            { label: 'F', move: 'F' }, { label: 'F\'', move: 'Fi' },
-            { label: 'B', move: 'B' }, { label: 'B\'', move: 'Bi' }
-        ];
-        
-        moves.forEach(({ label, move }) => {
-            const btn = document.createElement('button');
-            btn.textContent = label;
-            btn.className = 'btn-small';
-            btn.addEventListener('click', () => this.executeMove(move, true));
-            rotationControls.appendChild(btn);
-        });
-        
-        controls.appendChild(rotationControls);
-    }
+	const scene = new THREE.Scene();
+	scene.background = null;
 
-    createSolvedCube() {
-        return {
-            front: Array(9).fill(0),  // Red
-            back: Array(9).fill(1),   // Orange
-            left: Array(9).fill(2),   // Green
-            right: Array(9).fill(3),  // Blue
-            top: Array(9).fill(4),    // Yellow
-            bottom: Array(9).fill(5)  // White
-        };
-    }
+	addEnvironment();
+	buildCube();
+	updateCameraPosition();
+	onResize();
 
-    scrambleCube() {
-        const moves = ['U', 'D', 'L', 'R', 'F', 'B'];
-        const scrambleMoves = 20;
-        
-        for (let i = 0; i < scrambleMoves; i++) {
-            const move = moves[Math.floor(Math.random() * moves.length)];
-            this.executeMove(move, false);
-        }
-    }
+	if (window.ResizeObserver) {
+		const resizeObserver = new ResizeObserver(onResize);
+		resizeObserver.observe(stageEl);
+	}
+	window.addEventListener('resize', onResize);
 
-    async executeMove(move, countMove = false) {
-        if (this.isAnimating) return;
-        
-        if (countMove) {
-            this.moveCount++;
-            document.getElementById('moves').textContent = this.moveCount;
-        }
-        
-        this.isAnimating = true;
-        
-        switch(move) {
-            case 'U': await this.rotateTop(true); break;
-            case 'Ui': await this.rotateTop(false); break;
-            case 'D': await this.rotateBottom(true); break;
-            case 'Di': await this.rotateBottom(false); break;
-            case 'L': await this.rotateLeft(true); break;
-            case 'Li': await this.rotateLeft(false); break;
-            case 'R': await this.rotateRight(true); break;
-            case 'Ri': await this.rotateRight(false); break;
-            case 'F': await this.rotateFront(true); break;
-            case 'Fi': await this.rotateFront(false); break;
-            case 'B': await this.rotateBack(true); break;
-            case 'Bi': await this.rotateBack(false); break;
-        }
-        
-        this.isAnimating = false;
-        
-        if (countMove) {
-            this.checkWinCondition();
-        }
-    }
+	bindUIEvents();
+	bindPointerEvents();
+	bindKeyboardShortcuts();
 
-    rotateFace(face, clockwise = true) {
-        const temp = [...face];
-        if (clockwise) {
-            face[0] = temp[6]; face[1] = temp[3]; face[2] = temp[0];
-            face[3] = temp[7]; face[4] = temp[4]; face[5] = temp[1];
-            face[6] = temp[8]; face[7] = temp[5]; face[8] = temp[2];
-        } else {
-            face[0] = temp[2]; face[1] = temp[5]; face[2] = temp[8];
-            face[3] = temp[1]; face[4] = temp[4]; face[5] = temp[7];
-            face[6] = temp[0]; face[7] = temp[3]; face[8] = temp[6];
-        }
-    }
+	setMessage(state.latestMessage);
+	animate();
 
-    async rotateLayerAnimation(cubies, axis, angle, center) {
-        // In a real Rubik's cube, each face rotates around its center cubie
-        // The center cubie stays in place and only rotates
-        // The other 8 cubies rotate around this center point
-        
-        cubies.forEach(cubie => {
-            const { x, y, z } = cubie.position;
-            
-            // Check if this is the center cubie
-            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
-            
-            if (isCenterCubie) {
-                // Center cubie only rotates in place, doesn't move
-                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
-                               axis === 'y' ? `rotateY(${angle}deg)` :
-                               `rotateZ(${angle}deg)`;
-                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-                const posX = x * (this.cubieSize + this.gap) + offset;
-                const posY = -y * (this.cubieSize + this.gap) - offset;
-                const posZ = z * (this.cubieSize + this.gap) + offset;
-                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotation}`;
-            } else {
-                // Other cubies rotate around the center cubie
-                // First translate to center, rotate, then translate back
-                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-                const centerX = center.x * (this.cubieSize + this.gap) + offset;
-                const centerY = -center.y * (this.cubieSize + this.gap) - offset;
-                const centerZ = center.z * (this.cubieSize + this.gap) + offset;
-                
-                const posX = x * (this.cubieSize + this.gap) + offset;
-                const posY = -y * (this.cubieSize + this.gap) - offset;
-                const posZ = z * (this.cubieSize + this.gap) + offset;
-                
-                // Calculate relative position from center
-                const relX = posX - centerX;
-                const relY = posY - centerY;
-                const relZ = posZ - centerZ;
-                
-                // Build transform: translate to center, rotate, translate back
-                const rotation = axis === 'x' ? `rotateX(${angle}deg)` :
-                               axis === 'y' ? `rotateY(${angle}deg)` :
-                               `rotateZ(${angle}deg)`;
-                
-                cubie.element.style.transform = 
-                    `translate3d(${centerX}px, ${centerY}px, ${centerZ}px) ` +
-                    `${rotation} ` +
-                    `translate3d(${relX}px, ${relY}px, ${relZ}px)`;
-            }
-        });
-        
-        // Wait for animation to complete
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // Update positions after rotation
-        this.updateCubiePositions(cubies, axis, angle, center);
-    }
+	function addEnvironment() {
+		scene.add(new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.85));
 
-    updateCubiePositions(cubies, axis, angle, center) {
-        const radians = (angle * Math.PI) / 180;
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        
-        cubies.forEach(cubie => {
-            let { x, y, z } = cubie.position;
-            
-            // Check if this is the center cubie
-            const isCenterCubie = (x === center.x && y === center.y && z === center.z);
-            
-            if (isCenterCubie) {
-                // Center cubie position never changes, only its rotation
-                // Just update the transform to maintain rotation
-                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-                const posX = x * (this.cubieSize + this.gap) + offset;
-                const posY = -y * (this.cubieSize + this.gap) - offset;
-                const posZ = z * (this.cubieSize + this.gap) + offset;
-                
-                // Track cumulative rotation for center cubie
-                if (!cubie.centerRotation) {
-                    cubie.centerRotation = { x: 0, y: 0, z: 0 };
-                }
-                if (axis === 'x') cubie.centerRotation.x += angle;
-                if (axis === 'y') cubie.centerRotation.y += angle;
-                if (axis === 'z') cubie.centerRotation.z += angle;
-                
-                const rotX = `rotateX(${cubie.centerRotation.x}deg)`;
-                const rotY = `rotateY(${cubie.centerRotation.y}deg)`;
-                const rotZ = `rotateZ(${cubie.centerRotation.z}deg)`;
-                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px) ${rotX} ${rotY} ${rotZ}`;
-            } else {
-                // For other cubies, calculate new position relative to center
-                // Translate position relative to center
-                const relX = x - center.x;
-                const relY = y - center.y;
-                const relZ = z - center.z;
-                
-                let newRelX = relX, newRelY = relY, newRelZ = relZ;
-                
-                // Apply rotation matrix around center
-                if (axis === 'y') {
-                    // Rotation around Y axis
-                    newRelX = Math.round(relX * cos + relZ * sin);
-                    newRelZ = Math.round(-relX * sin + relZ * cos);
-                } else if (axis === 'x') {
-                    // Rotation around X axis  
-                    newRelY = Math.round(relY * cos - relZ * sin);
-                    newRelZ = Math.round(relY * sin + relZ * cos);
-                } else if (axis === 'z') {
-                    // Rotation around Z axis
-                    newRelX = Math.round(relX * cos - relY * sin);
-                    newRelY = Math.round(relX * sin + relY * cos);
-                }
-                
-                // Calculate new absolute position
-                const newX = center.x + newRelX;
-                const newY = center.y + newRelY;
-                const newZ = center.z + newRelZ;
-                
-                cubie.position = { x: newX, y: newY, z: newZ };
-                
-                // Update visual position
-                const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-                const posX = newX * (this.cubieSize + this.gap) + offset;
-                const posY = -newY * (this.cubieSize + this.gap) - offset;
-                const posZ = newZ * (this.cubieSize + this.gap) + offset;
-                
-                cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
-            }
-        });
-    }
+		const dirLight = new THREE.DirectionalLight(0xffffff, 1.05);
+		dirLight.position.set(6, 10, 8);
+		dirLight.castShadow = true;
+		dirLight.shadow.mapSize.set(2048, 2048);
+		dirLight.shadow.camera.near = 2;
+		dirLight.shadow.camera.far = 30;
+		scene.add(dirLight);
 
-    async rotateTop(clockwise = true) {
-        this.rotateFace(this.cube.top, clockwise);
-        
-        // Get cubies on top layer (y = 0)
-        const layerCubies = this.cubies.filter(c => c.position.y === 0);
-        
-        // Top face center is at (1, 0, 1)
-        const center = { x: 1, y: 0, z: 1 };
-        
-        // Animate rotation around center
-        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? -90 : 90, center);
-        
-        // Update color state
-        const temp = [this.cube.front[0], this.cube.front[1], this.cube.front[2]];
-        if (clockwise) {
-            this.cube.front[0] = this.cube.right[0];
-            this.cube.front[1] = this.cube.right[1];
-            this.cube.front[2] = this.cube.right[2];
-            
-            this.cube.right[0] = this.cube.back[0];
-            this.cube.right[1] = this.cube.back[1];
-            this.cube.right[2] = this.cube.back[2];
-            
-            this.cube.back[0] = this.cube.left[0];
-            this.cube.back[1] = this.cube.left[1];
-            this.cube.back[2] = this.cube.left[2];
-            
-            this.cube.left[0] = temp[0];
-            this.cube.left[1] = temp[1];
-            this.cube.left[2] = temp[2];
-        } else {
-            this.cube.front[0] = this.cube.left[0];
-            this.cube.front[1] = this.cube.left[1];
-            this.cube.front[2] = this.cube.left[2];
-            
-            this.cube.left[0] = this.cube.back[0];
-            this.cube.left[1] = this.cube.back[1];
-            this.cube.left[2] = this.cube.back[2];
-            
-            this.cube.back[0] = this.cube.right[0];
-            this.cube.back[1] = this.cube.right[1];
-            this.cube.back[2] = this.cube.right[2];
-            
-            this.cube.right[0] = temp[0];
-            this.cube.right[1] = temp[1];
-            this.cube.right[2] = temp[2];
-        }
-        
-        this.updateCubieColors();
-    }
+		const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
+		rimLight.position.set(-8, -6, -4);
+		scene.add(rimLight);
 
-    async rotateBottom(clockwise = true) {
-        this.rotateFace(this.cube.bottom, clockwise);
-        
-        const layerCubies = this.cubies.filter(c => c.position.y === 2);
-        
-        // Bottom face center is at (1, 2, 1)
-        const center = { x: 1, y: 2, z: 1 };
-        
-        await this.rotateLayerAnimation(layerCubies, 'y', clockwise ? 90 : -90, center);
-        
-        const temp = [this.cube.front[6], this.cube.front[7], this.cube.front[8]];
-        if (clockwise) {
-            this.cube.front[6] = this.cube.left[6];
-            this.cube.front[7] = this.cube.left[7];
-            this.cube.front[8] = this.cube.left[8];
-            
-            this.cube.left[6] = this.cube.back[6];
-            this.cube.left[7] = this.cube.back[7];
-            this.cube.left[8] = this.cube.back[8];
-            
-            this.cube.back[6] = this.cube.right[6];
-            this.cube.back[7] = this.cube.right[7];
-            this.cube.back[8] = this.cube.right[8];
-            
-            this.cube.right[6] = temp[0];
-            this.cube.right[7] = temp[1];
-            this.cube.right[8] = temp[2];
-        } else {
-            this.cube.front[6] = this.cube.right[6];
-            this.cube.front[7] = this.cube.right[7];
-            this.cube.front[8] = this.cube.right[8];
-            
-            this.cube.right[6] = this.cube.back[6];
-            this.cube.right[7] = this.cube.back[7];
-            this.cube.right[8] = this.cube.back[8];
-            
-            this.cube.back[6] = this.cube.left[6];
-            this.cube.back[7] = this.cube.left[7];
-            this.cube.back[8] = this.cube.left[8];
-            
-            this.cube.left[6] = temp[0];
-            this.cube.left[7] = temp[1];
-            this.cube.left[8] = temp[2];
-        }
-        
-        this.updateCubieColors();
-    }
+		const floor = new THREE.Mesh(
+			new THREE.CircleGeometry(6.2, 64),
+			new THREE.MeshStandardMaterial({
+				color: 0x0f172a,
+				roughness: 0.95,
+				metalness: 0.05,
+				transparent: true,
+				opacity: 0.9
+			})
+		);
+		floor.rotation.x = -Math.PI / 2;
+		floor.position.y = -2.2;
+		floor.receiveShadow = true;
+		scene.add(floor);
+	}
 
-    async rotateFront(clockwise = true) {
-        this.rotateFace(this.cube.front, clockwise);
-        
-        const layerCubies = this.cubies.filter(c => c.position.z === 2);
-        
-        // Front face center is at (1, 1, 2)
-        const center = { x: 1, y: 1, z: 2 };
-        
-        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? -90 : 90, center);
-        
-        const temp = [this.cube.top[6], this.cube.top[7], this.cube.top[8]];
-        if (clockwise) {
-            this.cube.top[6] = this.cube.left[8];
-            this.cube.top[7] = this.cube.left[5];
-            this.cube.top[8] = this.cube.left[2];
-            
-            this.cube.left[2] = this.cube.bottom[0];
-            this.cube.left[5] = this.cube.bottom[1];
-            this.cube.left[8] = this.cube.bottom[2];
-            
-            this.cube.bottom[0] = this.cube.right[6];
-            this.cube.bottom[1] = this.cube.right[3];
-            this.cube.bottom[2] = this.cube.right[0];
-            
-            this.cube.right[0] = temp[0];
-            this.cube.right[3] = temp[1];
-            this.cube.right[6] = temp[2];
-        } else {
-            this.cube.top[6] = this.cube.right[0];
-            this.cube.top[7] = this.cube.right[3];
-            this.cube.top[8] = this.cube.right[6];
-            
-            this.cube.right[0] = this.cube.bottom[2];
-            this.cube.right[3] = this.cube.bottom[1];
-            this.cube.right[6] = this.cube.bottom[0];
-            
-            this.cube.bottom[0] = this.cube.left[2];
-            this.cube.bottom[1] = this.cube.left[5];
-            this.cube.bottom[2] = this.cube.left[8];
-            
-            this.cube.left[2] = temp[8];
-            this.cube.left[5] = temp[7];
-            this.cube.left[8] = temp[6];
-        }
-        
-        this.updateCubieColors();
-    }
+	function buildCube() {
+		const cubeGroup = new THREE.Group();
+		scene.add(cubeGroup);
 
-    async rotateBack(clockwise = true) {
-        this.rotateFace(this.cube.back, clockwise);
-        
-        const layerCubies = this.cubies.filter(c => c.position.z === 0);
-        
-        // Back face center is at (1, 1, 0)
-        const center = { x: 1, y: 1, z: 0 };
-        
-        await this.rotateLayerAnimation(layerCubies, 'z', clockwise ? 90 : -90, center);
-        
-        const temp = [this.cube.top[0], this.cube.top[1], this.cube.top[2]];
-        if (clockwise) {
-            this.cube.top[0] = this.cube.right[2];
-            this.cube.top[1] = this.cube.right[5];
-            this.cube.top[2] = this.cube.right[8];
-            
-            this.cube.right[2] = this.cube.bottom[8];
-            this.cube.right[5] = this.cube.bottom[7];
-            this.cube.right[8] = this.cube.bottom[6];
-            
-            this.cube.bottom[6] = this.cube.left[0];
-            this.cube.bottom[7] = this.cube.left[3];
-            this.cube.bottom[8] = this.cube.left[6];
-            
-            this.cube.left[0] = temp[2];
-            this.cube.left[3] = temp[1];
-            this.cube.left[6] = temp[0];
-        } else {
-            this.cube.top[0] = this.cube.left[6];
-            this.cube.top[1] = this.cube.left[3];
-            this.cube.top[2] = this.cube.left[0];
-            
-            this.cube.left[0] = this.cube.bottom[6];
-            this.cube.left[3] = this.cube.bottom[7];
-            this.cube.left[6] = this.cube.bottom[8];
-            
-            this.cube.bottom[6] = this.cube.right[8];
-            this.cube.bottom[7] = this.cube.right[5];
-            this.cube.bottom[8] = this.cube.right[2];
-            
-            this.cube.right[2] = temp[0];
-            this.cube.right[5] = temp[1];
-            this.cube.right[8] = temp[2];
-        }
-        
-        this.updateCubieColors();
-    }
+		const cubeletSize = 0.95;
+		const spacing = 1.05;
+		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize);
 
-    async rotateLeft(clockwise = true) {
-        this.rotateFace(this.cube.left, clockwise);
-        
-        const layerCubies = this.cubies.filter(c => c.position.x === 0);
-        
-        // Left face center is at (0, 1, 1)
-        const center = { x: 0, y: 1, z: 1 };
-        
-        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? 90 : -90, center);
-        
-        const temp = [this.cube.top[0], this.cube.top[3], this.cube.top[6]];
-        if (clockwise) {
-            this.cube.top[0] = this.cube.back[8];
-            this.cube.top[3] = this.cube.back[5];
-            this.cube.top[6] = this.cube.back[2];
-            
-            this.cube.back[2] = this.cube.bottom[6];
-            this.cube.back[5] = this.cube.bottom[3];
-            this.cube.back[8] = this.cube.bottom[0];
-            
-            this.cube.bottom[0] = this.cube.front[0];
-            this.cube.bottom[3] = this.cube.front[3];
-            this.cube.bottom[6] = this.cube.front[6];
-            
-            this.cube.front[0] = temp[0];
-            this.cube.front[3] = temp[1];
-            this.cube.front[6] = temp[2];
-        } else {
-            this.cube.top[0] = this.cube.front[0];
-            this.cube.top[3] = this.cube.front[3];
-            this.cube.top[6] = this.cube.front[6];
-            
-            this.cube.front[0] = this.cube.bottom[0];
-            this.cube.front[3] = this.cube.bottom[3];
-            this.cube.front[6] = this.cube.bottom[6];
-            
-            this.cube.bottom[0] = this.cube.back[8];
-            this.cube.bottom[3] = this.cube.back[5];
-            this.cube.bottom[6] = this.cube.back[2];
-            
-            this.cube.back[2] = temp[6];
-            this.cube.back[5] = temp[3];
-            this.cube.back[8] = temp[0];
-        }
-        
-        this.updateCubieColors();
-    }
+		const faceMaterialsCache = new Map();
 
-    async rotateRight(clockwise = true) {
-        this.rotateFace(this.cube.right, clockwise);
-        
-        const layerCubies = this.cubies.filter(c => c.position.x === 2);
-        
-        // Right face center is at (2, 1, 1)
-        const center = { x: 2, y: 1, z: 1 };
-        
-        await this.rotateLayerAnimation(layerCubies, 'x', clockwise ? -90 : 90, center);
-        
-        const temp = [this.cube.top[2], this.cube.top[5], this.cube.top[8]];
-        if (clockwise) {
-            this.cube.top[2] = this.cube.front[2];
-            this.cube.top[5] = this.cube.front[5];
-            this.cube.top[8] = this.cube.front[8];
-            
-            this.cube.front[2] = this.cube.bottom[2];
-            this.cube.front[5] = this.cube.bottom[5];
-            this.cube.front[8] = this.cube.bottom[8];
-            
-            this.cube.bottom[2] = this.cube.back[6];
-            this.cube.bottom[5] = this.cube.back[3];
-            this.cube.bottom[8] = this.cube.back[0];
-            
-            this.cube.back[0] = temp[8];
-            this.cube.back[3] = temp[5];
-            this.cube.back[6] = temp[2];
-        } else {
-            this.cube.top[2] = this.cube.back[6];
-            this.cube.top[5] = this.cube.back[3];
-            this.cube.top[8] = this.cube.back[0];
-            
-            this.cube.back[0] = this.cube.bottom[8];
-            this.cube.back[3] = this.cube.bottom[5];
-            this.cube.back[6] = this.cube.bottom[2];
-            
-            this.cube.bottom[2] = this.cube.front[2];
-            this.cube.bottom[5] = this.cube.front[5];
-            this.cube.bottom[8] = this.cube.front[8];
-            
-            this.cube.front[2] = temp[0];
-            this.cube.front[5] = temp[1];
-            this.cube.front[8] = temp[2];
-        }
-        
-        this.updateCubieColors();
-    }
+		const getFaceMaterial = (color) => {
+			if (!faceMaterialsCache.has(color)) {
+				const material = new THREE.MeshStandardMaterial({
+					color,
+					roughness: 0.35,
+					metalness: 0.1,
+					polygonOffset: true,
+					polygonOffsetFactor: color === COLORS.base ? 0 : -1,
+					emissive: color === COLORS.base ? 0x000000 : color,
+					emissiveIntensity: color === COLORS.base ? 0.05 : 0.12
+				});
+				faceMaterialsCache.set(color, material);
+			}
+			return faceMaterialsCache.get(color);
+		};
 
-    checkWinCondition() {
-        const isSolved = Object.values(this.cube).every(face => {
-            const firstColor = face[0];
-            return face.every(cell => cell === firstColor);
-        });
-        
-        if (isSolved) {
-            this.onWin();
-        }
-    }
+		for (let x = -1; x <= 1; x += 1) {
+			for (let y = -1; y <= 1; y += 1) {
+				for (let z = -1; z <= 1; z += 1) {
+					if (x === 0 && y === 0 && z === 0) {
+						continue;
+					}
 
-    onWin() {
-        const message = document.getElementById('message');
-        message.textContent = `🎉 축하합니다! ${this.moveCount}번 만에 퍼즐을 완성했습니다! 🎉`;
-        message.classList.remove('hidden');
-        message.classList.add('celebrating');
-        
-        setTimeout(() => {
-            message.classList.remove('celebrating');
-        }, 3000);
-    }
+					const materials = [
+						getFaceMaterial(x === 1 ? COLORS.right : COLORS.base),
+						getFaceMaterial(x === -1 ? COLORS.left : COLORS.base),
+						getFaceMaterial(y === 1 ? COLORS.up : COLORS.base),
+						getFaceMaterial(y === -1 ? COLORS.down : COLORS.base),
+						getFaceMaterial(z === 1 ? COLORS.front : COLORS.base),
+						getFaceMaterial(z === -1 ? COLORS.back : COLORS.base)
+					];
 
-    showHint() {
-        const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 블럭을 드래그하면 레이어 회전, 빈 공간을 드래그하면 카메라 회전, 2개 손가락으로 드래그하면 팬 이동!';
-        message.classList.remove('hidden');
-        
-        setTimeout(() => {
-            message.classList.add('hidden');
-        }, 3000);
-    }
+					const mesh = new THREE.Mesh(geometry, materials);
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+					mesh.position.set(x * spacing, y * spacing, z * spacing);
 
-    resetCube() {
-        this.cube = this.createSolvedCube();
-        this.moveCount = 0;
-        document.getElementById('moves').textContent = '0';
-        document.getElementById('message').classList.add('hidden');
-        
-        // Reset all cubie positions
-        this.cubies.forEach((cubie, index) => {
-            const x = Math.floor(index / 9);
-            const y = Math.floor((index % 9) / 3);
-            const z = index % 3;
-            
-            cubie.position = { x, y, z };
-            cubie.rotation = { x: 0, y: 0, z: 0 };
-            
-            const offset = (this.cubieSize + this.gap) - (this.cubieSize + this.gap) * 1.5;
-            const posX = x * (this.cubieSize + this.gap) + offset;
-            const posY = -y * (this.cubieSize + this.gap) - offset;
-            const posZ = z * (this.cubieSize + this.gap) + offset;
-            
-            cubie.element.style.transform = `translate3d(${posX}px, ${posY}px, ${posZ}px)`;
-        });
-        
-        this.updateCubieColors();
-        setTimeout(() => this.scrambleCube(), 100);
-    }
+					const cubelet = {
+						mesh,
+						logicalPosition: new THREE.Vector3(x, y, z),
+						initialLogicalPosition: new THREE.Vector3(x, y, z),
+						orientation: {
+							x: new THREE.Vector3(1, 0, 0),
+							y: new THREE.Vector3(0, 1, 0),
+							z: new THREE.Vector3(0, 0, 1)
+						},
+						initialOrientation: {
+							x: new THREE.Vector3(1, 0, 0),
+							y: new THREE.Vector3(0, 1, 0),
+							z: new THREE.Vector3(0, 0, 1)
+						}
+					};
 
-    onWindowResize() {
-        const size = Math.min(window.innerWidth * 0.8, 300);
-        this.cubeElement.style.width = size + 'px';
-        this.cubeElement.style.height = size + 'px';
-    }
-}
+					mesh.userData.cubelet = cubelet;
+					cubeGroup.add(mesh);
+					cubelets.push(cubelet);
+				}
+			}
+		}
 
-// Initialize game when page loads
-window.addEventListener('DOMContentLoaded', () => {
-    new CubePuzzleGame();
-});
+		scene.userData.cubeGroup = cubeGroup;
+		scene.userData.spacing = spacing;
+	}
+
+	function resetCube() {
+		const spacing = scene.userData.spacing;
+		cubelets.forEach((cubelet) => {
+			cubelet.logicalPosition.copy(cubelet.initialLogicalPosition);
+			cubelet.orientation.x.copy(cubelet.initialOrientation.x);
+			cubelet.orientation.y.copy(cubelet.initialOrientation.y);
+			cubelet.orientation.z.copy(cubelet.initialOrientation.z);
+
+			cubelet.mesh.position.set(
+				cubelet.logicalPosition.x * spacing,
+				cubelet.logicalPosition.y * spacing,
+				cubelet.logicalPosition.z * spacing
+			);
+
+			const basisMatrix = new THREE.Matrix4().makeBasis(
+				cubelet.orientation.x,
+				cubelet.orientation.y,
+				cubelet.orientation.z
+			);
+			cubelet.mesh.quaternion.setFromRotationMatrix(basisMatrix);
+		});
+	}
+
+	function bindUIEvents() {
+		scrambleBtn?.addEventListener('click', () => {
+			if (state.isRotating) {
+				setMessage('회전이 끝난 후 다시 시도하세요.');
+				return;
+			}
+			scrambleCube();
+		});
+
+		resetBtn?.addEventListener('click', () => {
+			if (state.isRotating || moveQueue.length) {
+				setMessage('회전이 끝난 후 리셋할 수 있습니다.');
+				return;
+			}
+			resetCube();
+			state.moveHistory.length = 0;
+			state.moveCount = 0;
+			updateHud();
+			setMessage('큐브가 초기화되었습니다.');
+		});
+
+		hintBtn?.addEventListener('click', () => {
+			if (state.isRotating || moveQueue.length) {
+				setMessage('현재 회전이 완료된 후 힌트를 사용할 수 있습니다.');
+				return;
+			}
+			if (!state.moveHistory.length) {
+				setMessage('되돌릴 이동이 없습니다.');
+				return;
+			}
+
+			const lastMove = state.moveHistory.pop();
+			state.moveCount = Math.max(0, state.moveCount - 1);
+			updateHud();
+
+			const inverseMove = {
+				axis: lastMove.axis,
+				layer: lastMove.layer,
+				direction: -lastMove.direction,
+				record: false,
+				notation: `${lastMove.notation}' 되돌리기` // message context only
+			};
+
+			enqueueMove({
+				...inverseMove,
+				onComplete: () => {
+					updateHud();
+					setMessage('최근 이동을 되돌렸습니다.');
+				}
+			});
+		});
+	}
+
+	function bindKeyboardShortcuts() {
+		const keyMap = {
+			KeyU: { axis: 'y', layer: 1 },
+			KeyD: { axis: 'y', layer: -1 },
+			KeyL: { axis: 'x', layer: -1 },
+			KeyR: { axis: 'x', layer: 1 },
+			KeyF: { axis: 'z', layer: 1 },
+			KeyB: { axis: 'z', layer: -1 }
+		};
+
+		window.addEventListener('keydown', (event) => {
+			if (event.repeat) {
+				return;
+			}
+
+			if (event.code === 'Space') {
+				highlightMessage();
+				return;
+			}
+
+			const mapped = keyMap[event.code];
+			if (!mapped) {
+				return;
+			}
+
+			event.preventDefault();
+			if (state.isRotating) {
+				return;
+			}
+
+			const direction = event.shiftKey ? -1 : 1;
+			enqueueMove({
+				axis: mapped.axis,
+				layer: mapped.layer,
+				direction
+			});
+		});
+	}
+
+	function highlightMessage() {
+		messageEl.classList.remove('flash');
+		void messageEl.offsetWidth;
+		messageEl.classList.add('flash');
+	}
+
+	function bindPointerEvents() {
+		const canvas = renderer.domElement;
+		canvas.addEventListener('pointerdown', onPointerDown);
+		canvas.addEventListener('pointermove', onPointerMove);
+		canvas.addEventListener('pointerup', onPointerUp);
+		canvas.addEventListener('pointercancel', onPointerUp);
+		canvas.addEventListener('wheel', onWheel, { passive: false });
+		canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+	}
+
+	function onPointerDown(event) {
+		const canvas = renderer.domElement;
+		canvas.setPointerCapture(event.pointerId);
+
+		const pointer = createPointerState(event);
+		pointerStates.set(event.pointerId, pointer);
+
+		if (event.pointerType === 'touch') {
+			event.preventDefault();
+		}
+
+		if (pointerStates.size === 1) {
+			// Single pointer: determine whether to rotate cube or orbit camera.
+			const intersection = pickCubeFace(pointer.clientX, pointer.clientY);
+			if (intersection && !state.isRotating && !moveQueue.length) {
+				dragState = {
+					pointerId: event.pointerId,
+					startClient: new THREE.Vector2(pointer.clientX, pointer.clientY),
+					currentClient: new THREE.Vector2(pointer.clientX, pointer.clientY),
+					intersection,
+					hasTriggered: false
+				};
+			} else {
+				startOrbit(event.pointerId, pointer.clientX, pointer.clientY);
+			}
+		} else if (pointerStates.size === 2) {
+			dragState = null;
+			orbitState.pointerId = null;
+			startGesture();
+		}
+	}
+
+	function onPointerMove(event) {
+		const pointer = pointerStates.get(event.pointerId);
+		if (!pointer) {
+			return;
+		}
+
+		pointer.currentX = event.clientX;
+		pointer.currentY = event.clientY;
+
+		if (gestureState) {
+			updateGesture();
+			return;
+		}
+
+		if (dragState && dragState.pointerId === event.pointerId) {
+			dragState.currentClient.set(event.clientX, event.clientY);
+			handleDragMove();
+			return;
+		}
+
+		if (orbitState.pointerId === event.pointerId) {
+			updateOrbit(event.clientX, event.clientY);
+		}
+	}
+
+	function onPointerUp(event) {
+		renderer.domElement.releasePointerCapture(event.pointerId);
+		pointerStates.delete(event.pointerId);
+
+		if (dragState && dragState.pointerId === event.pointerId) {
+			dragState = null;
+		}
+
+		if (orbitState.pointerId === event.pointerId) {
+			orbitState.pointerId = null;
+		}
+
+		if (gestureState && gestureState.pointerIds.includes(event.pointerId)) {
+			gestureState = null;
+		}
+
+		if (pointerStates.size === 1 && !gestureState) {
+			const remainingId = pointerStates.keys().next().value;
+			const pointer = pointerStates.get(remainingId);
+			startOrbit(remainingId, pointer.currentX, pointer.currentY);
+		}
+	}
+
+	function onWheel(event) {
+		event.preventDefault();
+		const delta = event.deltaY;
+		const zoomFactor = Math.exp(delta * 0.0015);
+		cameraDistance = THREE.MathUtils.clamp(
+			cameraDistance * zoomFactor,
+			cameraLimits.minDistance,
+			cameraLimits.maxDistance
+		);
+		updateCameraPosition();
+	}
+
+	function createPointerState(event) {
+		return {
+			pointerId: event.pointerId,
+			pointerType: event.pointerType,
+			clientX: event.clientX,
+			clientY: event.clientY,
+			currentX: event.clientX,
+			currentY: event.clientY
+		};
+	}
+
+	function startOrbit(pointerId, clientX, clientY) {
+		orbitState.pointerId = pointerId;
+		orbitState.startTheta = orbitState.theta;
+		orbitState.startPhi = orbitState.phi;
+		orbitState.startPos = new THREE.Vector2(clientX, clientY);
+	}
+
+	function updateOrbit(clientX, clientY) {
+		if (!orbitState.startPos) {
+			return;
+		}
+
+		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
+		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
+
+		orbitState.theta = orbitState.startTheta - deltaX;
+		orbitState.phi = THREE.MathUtils.clamp(
+			orbitState.startPhi - deltaY,
+			cameraLimits.minPhi,
+			cameraLimits.maxPhi
+		);
+
+		updateCameraPosition();
+	}
+
+	function startGesture() {
+		const ids = Array.from(pointerStates.keys());
+		if (ids.length !== 2) {
+			return;
+		}
+
+		const p1 = pointerStates.get(ids[0]);
+		const p2 = pointerStates.get(ids[1]);
+		const midpoint = midpointOfPointers(p1, p2);
+
+		gestureState = {
+			pointerIds: ids,
+			lastMidpoint: midpoint,
+			lastDistance: distanceBetweenPointers(p1, p2)
+		};
+	}
+
+	function updateGesture() {
+		if (!gestureState) {
+			return;
+		}
+
+		const p1 = pointerStates.get(gestureState.pointerIds[0]);
+		const p2 = pointerStates.get(gestureState.pointerIds[1]);
+		if (!p1 || !p2) {
+			gestureState = null;
+			return;
+		}
+
+		const midpoint = midpointOfPointers(p1, p2);
+		const distance = distanceBetweenPointers(p1, p2);
+
+		const panDelta = midpoint.clone().sub(gestureState.lastMidpoint);
+		panCamera(panDelta.x, panDelta.y);
+		gestureState.lastMidpoint.copy(midpoint);
+
+		if (distance > 0 && gestureState.lastDistance > 0) {
+			const scale = distance / gestureState.lastDistance;
+			cameraDistance = THREE.MathUtils.clamp(
+				cameraDistance / scale,
+				cameraLimits.minDistance,
+				cameraLimits.maxDistance
+			);
+			updateCameraPosition();
+		}
+
+		gestureState.lastDistance = distance;
+	}
+
+	function handleDragMove() {
+		if (!dragState || dragState.hasTriggered) {
+			return;
+		}
+
+		const dragVec = dragState.currentClient.clone().sub(dragState.startClient);
+		if (dragVec.length() < 8) {
+			return;
+		}
+
+		const move = determineMoveFromDrag(dragState, dragVec);
+		if (!move) {
+			return;
+		}
+
+		dragState.hasTriggered = true;
+		dragState = null;
+		enqueueMove(move);
+	}
+
+	function determineMoveFromDrag(stateObj, dragVec) {
+		const { intersection } = stateObj;
+		const { cubelet, point, normal } = intersection;
+
+		const axisName = dominantAxisFromNormal(normal);
+		const axisVector = AXIS_VECTORS[axisName];
+		const layer = Math.round(cubelet.logicalPosition[axisName]);
+		if (!layer) {
+			return null;
+		}
+
+		const tangentA = new THREE.Vector3(0, 1, 0);
+		if (Math.abs(tangentA.dot(normal)) > 0.9) {
+			tangentA.set(1, 0, 0);
+		}
+		tangentA.cross(normal).normalize();
+		const tangentB = new THREE.Vector3().crossVectors(normal, tangentA).normalize();
+
+		const projections = [
+			projectDirectionToScreen(point, tangentA),
+			projectDirectionToScreen(point, tangentB)
+		];
+
+		const dragLength = dragVec.length();
+		if (dragLength === 0) {
+			return null;
+		}
+
+		const alignment = projections.map((proj) => {
+			const denom = proj.length() * dragLength;
+			if (!denom) {
+				return { score: 0, sign: 0 };
+			}
+			const scoreRaw = proj.dot(dragVec) / denom;
+			return { score: Math.abs(scoreRaw), sign: Math.sign(scoreRaw) || 1 };
+		});
+
+		const dominantIndex = alignment[0].score >= alignment[1].score ? 0 : 1;
+		const dominantTangent = dominantIndex === 0 ? tangentA : tangentB;
+		const dominantSign = alignment[dominantIndex].sign || 1;
+
+		const samplePoint = point.clone().add(dominantTangent.clone().multiplyScalar(0.35));
+		const baseAngle = Math.PI / 2;
+		const screenStart = projectPointToScreen(samplePoint);
+
+		let bestSign = null;
+		let bestScore = -Infinity;
+		const normalizedDrag = dragVec.clone().normalize();
+
+		for (const sign of [1, -1]) {
+			const rotatedPoint = rotatePointAroundAxis(samplePoint, axisVector, sign * baseAngle);
+			const rotatedScreen = projectPointToScreen(rotatedPoint);
+			const predicted = rotatedScreen.sub(screenStart);
+			if (predicted.lengthSq() === 0) {
+				continue;
+			}
+			predicted.normalize();
+			const score = predicted.dot(normalizedDrag);
+			if (score > bestScore) {
+				bestScore = score;
+				bestSign = sign;
+			}
+		}
+
+		if (bestSign === null) {
+			bestSign = dominantSign;
+		}
+
+		const direction = deriveDirectionFromAngleSign(bestSign, layer);
+
+		return {
+			axis: axisName,
+			layer,
+			direction
+		};
+	}
+
+	function dominantAxisFromNormal(normal) {
+		const ax = Math.abs(normal.x);
+		const ay = Math.abs(normal.y);
+		const az = Math.abs(normal.z);
+
+		if (ax >= ay && ax >= az) {
+			return 'x';
+		}
+		if (ay >= ax && ay >= az) {
+			return 'y';
+		}
+		return 'z';
+	}
+
+	function deriveDirectionFromAngleSign(angleSign, layer) {
+		const viewAlignment = layer === 1 ? 1 : -1;
+		let direction = -angleSign / viewAlignment;
+		if (direction > 0) {
+			return 1;
+		}
+		if (direction < 0) {
+			return -1;
+		}
+		return 1;
+	}
+
+	function projectDirectionToScreen(origin, direction) {
+		const target = origin.clone().add(direction);
+		const start2D = projectPointToScreen(origin.clone());
+		const end2D = projectPointToScreen(target);
+		return end2D.sub(start2D);
+	}
+
+	function projectPointToScreen(point) {
+		const projected = point.clone().project(camera);
+		const rect = renderer.domElement.getBoundingClientRect();
+		return new THREE.Vector2(
+			(projected.x * 0.5 + 0.5) * rect.width,
+			(-projected.y * 0.5 + 0.5) * rect.height
+		);
+	}
+
+	function rotatePointAroundAxis(point, axisVector, angle) {
+		const quaternion = tmpQuat.setFromAxisAngle(axisVector, angle);
+		return point.clone().applyQuaternion(quaternion);
+	}
+
+	function pickCubeFace(clientX, clientY) {
+		const ndc = clientToNdc(clientX, clientY);
+		raycaster.setFromCamera(ndc, camera);
+		const intersects = raycaster.intersectObjects(cubelets.map((c) => c.mesh));
+		if (!intersects.length) {
+			return null;
+		}
+
+		const hit = intersects[0];
+		const cubelet = hit.object.userData.cubelet;
+		if (!cubelet) {
+			return null;
+		}
+
+		const normalMatrix = new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
+		const normal = hit.face.normal.clone().applyMatrix3(normalMatrix).normalize();
+
+		return {
+			cubelet,
+			point: hit.point.clone(),
+			normal
+		};
+	}
+
+	function clientToNdc(clientX, clientY) {
+		const rect = renderer.domElement.getBoundingClientRect();
+		return new THREE.Vector2(
+			((clientX - rect.left) / rect.width) * 2 - 1,
+			-((clientY - rect.top) / rect.height) * 2 + 1
+		);
+	}
+
+	function enqueueMove(move) {
+		const normalized = normalizeMove(move);
+		moveQueue.push(normalized);
+		if (!state.isRotating) {
+			processMoveQueue();
+		}
+	}
+
+	function normalizeMove(move) {
+		const axis = move.axis;
+		const layer = move.layer === -1 ? -1 : 1;
+		const direction = move.direction === -1 ? -1 : 1;
+		const angle = computeActualAngle(axis, layer, direction);
+		const notation = move.notation || `${FACE_NOTATION[axis][layer]}${direction === 1 ? '' : "'"}`;
+		const duration = move.duration ?? 200;
+
+		return {
+			axis,
+			layer,
+			direction,
+			angle,
+			notation,
+			duration,
+			record: move.record !== false,
+			onComplete: move.onComplete || null
+		};
+	}
+
+	function processMoveQueue() {
+		if (!moveQueue.length) {
+			return;
+		}
+
+		const move = moveQueue.shift();
+		const layerCubelets = cubelets.filter((cubelet) => Math.round(cubelet.logicalPosition[move.axis]) === move.layer);
+		const axisVector = AXIS_VECTORS[move.axis].clone();
+		const rotationMatrix4 = tmpMatrix4.makeRotationAxis(axisVector, move.angle);
+		const rotationMatrix3 = tmpMatrix3.setFromMatrix4(rotationMatrix4);
+
+		state.isRotating = true;
+		animateLayerRotation(layerCubelets, axisVector, move.angle, move.duration, () => {
+			finalizeLayer(layerCubelets, rotationMatrix3);
+			if (move.record) {
+				recordMove(move);
+			}
+			move.onComplete?.(move);
+			state.isRotating = false;
+			if (moveQueue.length) {
+				processMoveQueue();
+			}
+		});
+	}
+
+	function computeActualAngle(axis, layer, direction) {
+		const base = Math.PI / 2;
+		const viewAlignment = layer === 1 ? 1 : -1;
+		return -direction * viewAlignment * base;
+	}
+
+	function animateLayerRotation(cubeletGroup, axisVector, targetAngle, duration, onDone) {
+		const start = performance.now();
+		let previousAngle = 0;
+
+		function step(now) {
+			const elapsed = now - start;
+			const t = Math.min(elapsed / duration, 1);
+			const eased = easeOutCubic(t);
+			const currentAngle = targetAngle * eased;
+			const delta = currentAngle - previousAngle;
+
+			cubeletGroup.forEach((cubelet) => {
+				cubelet.mesh.position.applyAxisAngle(axisVector, delta);
+				cubelet.mesh.rotateOnWorldAxis(axisVector, delta);
+			});
+
+			previousAngle = currentAngle;
+			if (t < 1) {
+				requestAnimationFrame(step);
+			} else {
+				onDone();
+			}
+		}
+
+		requestAnimationFrame(step);
+	}
+
+	function finalizeLayer(cubeletGroup, rotationMatrix3) {
+		const spacing = scene.userData.spacing;
+
+		cubeletGroup.forEach((cubelet) => {
+			cubelet.logicalPosition.applyMatrix3(rotationMatrix3);
+			cubelet.logicalPosition.set(
+				Math.round(cubelet.logicalPosition.x),
+				Math.round(cubelet.logicalPosition.y),
+				Math.round(cubelet.logicalPosition.z)
+			);
+
+			cubelet.orientation.x.applyMatrix3(rotationMatrix3);
+			cubelet.orientation.y.applyMatrix3(rotationMatrix3);
+			cubelet.orientation.z.applyMatrix3(rotationMatrix3);
+
+			cubelet.orientation.x.set(
+				Math.round(cubelet.orientation.x.x),
+				Math.round(cubelet.orientation.x.y),
+				Math.round(cubelet.orientation.x.z)
+			);
+			cubelet.orientation.y.set(
+				Math.round(cubelet.orientation.y.x),
+				Math.round(cubelet.orientation.y.y),
+				Math.round(cubelet.orientation.y.z)
+			);
+			cubelet.orientation.z.set(
+				Math.round(cubelet.orientation.z.x),
+				Math.round(cubelet.orientation.z.y),
+				Math.round(cubelet.orientation.z.z)
+			);
+
+			cubelet.mesh.position.set(
+				cubelet.logicalPosition.x * spacing,
+				cubelet.logicalPosition.y * spacing,
+				cubelet.logicalPosition.z * spacing
+			);
+
+			const basisMatrix = new THREE.Matrix4().makeBasis(
+				cubelet.orientation.x,
+				cubelet.orientation.y,
+				cubelet.orientation.z
+			);
+			cubelet.mesh.quaternion.setFromRotationMatrix(basisMatrix);
+		});
+	}
+
+	function recordMove(move) {
+		state.moveHistory.push({
+			axis: move.axis,
+			layer: move.layer,
+			direction: move.direction,
+			notation: move.notation
+		});
+		state.moveCount += 1;
+		updateHud(move.notation);
+		if (isCubeSolved()) {
+			setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
+		} else {
+			setMessage(`${move.notation} 수행!`);
+		}
+	}
+
+	function updateHud(notation) {
+		moveCountEl.textContent = String(state.moveCount);
+		if (notation) {
+			moveLogEl.textContent = notation;
+		} else if (state.moveHistory.length) {
+			moveLogEl.textContent = state.moveHistory[state.moveHistory.length - 1].notation;
+		} else {
+			moveLogEl.textContent = '-';
+		}
+	}
+
+	function isCubeSolved() {
+		return cubelets.every((cubelet) => {
+			if (!cubelet.logicalPosition.equals(cubelet.initialLogicalPosition)) {
+				return false;
+			}
+			const basisMatrix = new THREE.Matrix4().makeBasis(
+				cubelet.orientation.x,
+				cubelet.orientation.y,
+				cubelet.orientation.z
+			);
+			const initialBasis = new THREE.Matrix4().makeBasis(
+				cubelet.initialOrientation.x,
+				cubelet.initialOrientation.y,
+				cubelet.initialOrientation.z
+			);
+			return basisMatrix.equals(initialBasis);
+		});
+	}
+
+	function scrambleCube() {
+		const scrambleLength = 24;
+		const moves = [];
+		const options = [
+			{ axis: 'x', layer: 1 },
+			{ axis: 'x', layer: -1 },
+			{ axis: 'y', layer: 1 },
+			{ axis: 'y', layer: -1 },
+			{ axis: 'z', layer: 1 },
+			{ axis: 'z', layer: -1 }
+		];
+
+		let lastOption = null;
+		for (let i = 0; i < scrambleLength; i += 1) {
+			let candidate;
+			do {
+				candidate = options[Math.floor(Math.random() * options.length)];
+			} while (lastOption && candidate.axis === lastOption.axis && candidate.layer === lastOption.layer);
+
+			lastOption = candidate;
+			moves.push({
+				axis: candidate.axis,
+				layer: candidate.layer,
+				direction: Math.random() > 0.5 ? 1 : -1,
+				record: false
+			});
+		}
+
+		if (!moves.length) {
+			return;
+		}
+
+		state.moveHistory.length = 0;
+		state.moveCount = 0;
+		updateHud();
+		setMessage('큐브를 섞는 중...');
+
+		const finalMoveIndex = moves.length - 1;
+		moves.forEach((move, idx) => {
+			enqueueMove({
+				...move,
+				onComplete: idx === finalMoveIndex ? () => {
+					setMessage('섞기가 완료되었습니다! 즐겁게 플레이하세요.');
+				} : null
+			});
+		});
+	}
+
+	function setMessage(text, options = {}) {
+		state.latestMessage = text;
+		messageEl.textContent = text;
+		if (options.celebrate) {
+			messageEl.classList.add('celebrate');
+		} else {
+			messageEl.classList.remove('celebrate');
+		}
+	}
+
+	function animate() {
+		requestAnimationFrame(animate);
+		renderer.render(scene, camera);
+	}
+
+	function easeOutCubic(t) {
+		return 1 - Math.pow(1 - t, 3);
+	}
+
+	function updateCameraPosition() {
+		const sinPhi = Math.sin(orbitState.phi);
+		const cosPhi = Math.cos(orbitState.phi);
+		const sinTheta = Math.sin(orbitState.theta);
+		const cosTheta = Math.cos(orbitState.theta);
+
+		camera.position.set(
+			cameraTarget.x + cameraDistance * sinPhi * sinTheta,
+			cameraTarget.y + cameraDistance * cosPhi,
+			cameraTarget.z + cameraDistance * sinPhi * cosTheta
+		);
+		camera.lookAt(cameraTarget);
+	}
+
+	function panCamera(deltaX, deltaY) {
+		if (deltaX === 0 && deltaY === 0) {
+			return;
+		}
+
+		const panSpeed = cameraDistance * 0.0016;
+		const rect = renderer.domElement.getBoundingClientRect();
+		const normalizedDeltaX = deltaX / rect.width;
+		const normalizedDeltaY = deltaY / rect.height;
+
+		const forward = tmpVec3
+			.subVectors(cameraTarget, camera.position)
+			.normalize();
+		const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+		const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+
+		const move = right.multiplyScalar(-normalizedDeltaX * panSpeed * rect.width)
+			.add(up.multiplyScalar(normalizedDeltaY * panSpeed * rect.height));
+
+		cameraTarget.add(move);
+		camera.position.add(move);
+	}
+
+	function distanceBetweenPointers(p1, p2) {
+		return Math.hypot(p1.currentX - p2.currentX, p1.currentY - p2.currentY);
+	}
+
+	function midpointOfPointers(p1, p2) {
+		return new THREE.Vector2(
+			(p1.currentX + p2.currentX) * 0.5,
+			(p1.currentY + p2.currentY) * 0.5
+		);
+	}
+
+	function onResize() {
+		const rect = stageEl.getBoundingClientRect();
+		const width = rect.width || stageEl.clientWidth || 1;
+		const height = rect.height || stageEl.clientHeight || 1;
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+		renderer.setSize(width, height, false);
+		camera.aspect = width / height;
+		camera.updateProjectionMatrix();
+	}
+})();

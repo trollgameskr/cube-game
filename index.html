@@ -2,27 +2,53 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="description" content="3x3 큐브 퍼즐 게임 - 터치로 플레이">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="3x3 큐브 퍼즐 게임 - GitHub Pages용 웹앱">
     <title>3x3 큐브 퍼즐 게임</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="game-container">
-        <div id="canvas-container"></div>
-        <div id="ui-container">
-            <div id="instructions">
-                <p>💡 <strong>게임 방법:</strong> 블럭 드래그로 레이어 회전, 빈 공간 드래그로 카메라 회전, 2개 손가락 드래그로 팬 이동!</p>
-                <p id="move-counter">이동: <span id="moves">0</span></p>
-            </div>
-            <div id="controls">
-                <button id="reset-btn" class="btn">리셋</button>
-                <button id="hint-btn" class="btn">힌트</button>
-            </div>
-            <div id="message" class="hidden"></div>
-        </div>
+    <div class="app">
+        <header class="app-header">
+            <h1>3D 3x3 큐브 게임</h1>
+            <p>큐브를 드래그해 회전하고, 빈 공간을 드래그해 화면을 이동하세요. 핀치나 휠로 확대/축소할 수 있습니다.</p>
+        </header>
+
+        <main class="app-main">
+            <section class="cube-section" aria-labelledby="cube-title">
+                <h2 id="cube-title" class="sr-only">3D 큐브</h2>
+                <div class="cube-stage" id="cube-stage"></div>
+                <p class="cube-hint">큐브 위를 드래그하면 회전, 빈 공간을 드래그하면 팬 이동, 터치 핀치나 마우스 휠로 줌이 가능합니다.</p>
+            </section>
+
+            <section class="control-section" aria-labelledby="control-title">
+                <h2 id="control-title" class="sr-only">조작 패널</h2>
+
+                <div class="hud">
+                    <div class="hud-item">이동 수 <strong id="move-count">0</strong></div>
+                    <div class="hud-item">최근 이동 <span id="move-log">-</span></div>
+                </div>
+
+                <div id="message" class="message">섞기 버튼으로 게임을 시작하세요!</div>
+
+                <div class="actions">
+                    <button type="button" id="scramble-btn" class="btn primary">섞기</button>
+                    <button type="button" id="reset-btn" class="btn">리셋</button>
+                    <button type="button" id="hint-btn" class="btn">힌트</button>
+                </div>
+
+                <div class="hotkeys">
+                    <h3>단축키 안내</h3>
+                    <p>U, D, L, R, F, B 키로 면 회전 • Shift+키는 반시계 방향 • Space로 최근 메시지 확인</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <small>정적 파일만으로 동작하므로 GitHub Pages에 바로 배포할 수 있습니다.</small>
+        </footer>
     </div>
-    
-    <script src="game.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js" defer></script>
+    <script src="game.js" defer></script>
 </body>
 </html>
