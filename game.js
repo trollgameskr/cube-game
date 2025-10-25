@@ -96,8 +96,8 @@ class CubePuzzleGame {
             { name: 'back', rotation: 'rotateY(180deg)', translate: `0, 0, ${this.cubieSize/2}px` },
             { name: 'right', rotation: 'rotateY(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
             { name: 'left', rotation: 'rotateY(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'top', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
-            { name: 'bottom', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
+            { name: 'top', rotation: 'rotateX(-90deg)', translate: `0, 0, ${this.cubieSize/2}px` },
+            { name: 'bottom', rotation: 'rotateX(90deg)', translate: `0, 0, ${this.cubieSize/2}px` }
         ];
         
         const faceElements = {};
