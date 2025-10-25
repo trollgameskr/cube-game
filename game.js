@@ -11,11 +11,6 @@ class CubePuzzleGame {
         this.cubieSize = 95;
         this.gap = 5;
         
-        // Camera zoom constants
-        this.MIN_ZOOM = 0.5;
-        this.MAX_ZOOM = 2.5;
-        this.ZOOM_SENSITIVITY = 0.005;
-        
         // Touch control state
         this.touchStartPos = null;
         this.touchStartCubie = null;
@@ -25,7 +20,6 @@ class CubePuzzleGame {
         this.initialTouchDistance = 0;
         this.panOffset = { x: 0, y: 0 };
         this.draggedLayer = null;
-        this.scale = 1.0; // Camera zoom level
         
         this.colors = {
             0: '#FF0000', // Red - Front (z=2)
@@ -97,6 +91,7 @@ class CubePuzzleGame {
             height: ${this.cubieSize}px;
             transform-style: preserve-3d;
             transform: translate3d(${posX}px, ${posY}px, ${posZ}px);
+            transition: transform 0.3s ease-out;
         `;
         
         // Create 6 faces for each cubie
@@ -180,7 +175,7 @@ class CubePuzzleGame {
     }
 
     updateCubeRotation() {
-        this.cubeElement.style.transform = `translate3d(${this.panOffset.x}px, ${this.panOffset.y}px, 0) rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg) scale(${this.scale})`;
+        this.cubeElement.style.transform = `translate3d(${this.panOffset.x}px, ${this.panOffset.y}px, 0) rotateX(${this.rotation.x}deg) rotateY(${this.rotation.y}deg)`;
     }
 
     getCubieAtPoint(clientX, clientY) {
@@ -281,10 +276,12 @@ class CubePuzzleGame {
                 touchCount = e.touches.length;
                 
                 if (touchCount === 2) {
-                    // Two finger touch - pinch zoom
+                    // Two finger touch - pan movement
                     this.isPanning = true;
                     this.isDraggingView = false;
                     this.initialTouchDistance = getTouchDistance(e.touches[0], e.touches[1]);
+                    const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
+                    this.previousMousePosition = midpoint;
                     e.preventDefault();
                     return;
                 }
@@ -322,17 +319,17 @@ class CubePuzzleGame {
                 touchCount = e.touches.length;
                 
                 if (touchCount === 2 && this.isPanning) {
-                    // Two finger pinch zoom
+                    // Two finger pan movement
                     e.preventDefault();
-                    const currentDistance = getTouchDistance(e.touches[0], e.touches[1]);
-                    const distanceChange = currentDistance - this.initialTouchDistance;
+                    const midpoint = getTouchMidpoint(e.touches[0], e.touches[1]);
+                    const deltaX = midpoint.x - this.previousMousePosition.x;
+                    const deltaY = midpoint.y - this.previousMousePosition.y;
                     
-                    // Calculate zoom factor based on distance change
-                    const zoomDelta = distanceChange * this.ZOOM_SENSITIVITY;
-                    this.scale = Math.max(this.MIN_ZOOM, Math.min(this.MAX_ZOOM, this.scale + zoomDelta));
+                    this.panOffset.x += deltaX;
+                    this.panOffset.y += deltaY;
                     
                     this.updateCubeRotation();
-                    this.initialTouchDistance = currentDistance;
+                    this.previousMousePosition = midpoint;
                     return;
                 }
             }
@@ -356,10 +353,10 @@ class CubePuzzleGame {
                     this.executeMove(move, true);
                 }
             } else if (!this.touchStartCubie && this.isDraggingView && distance > 5) {
-                // Dragging empty space - rotate camera (reversed direction)
+                // Dragging empty space - rotate camera
                 e.preventDefault();
-                this.rotation.y -= (clientX - this.previousMousePosition.x) * 0.5;
-                this.rotation.x -= (clientY - this.previousMousePosition.y) * 0.5;
+                this.rotation.y += (clientX - this.previousMousePosition.x) * 0.5;
+                this.rotation.x += (clientY - this.previousMousePosition.y) * 0.5;
                 this.updateCubeRotation();
                 this.previousMousePosition = { x: clientX, y: clientY };
             }
@@ -930,7 +927,7 @@ class CubePuzzleGame {
 
     showHint() {
         const message = document.getElementById('message');
-        message.textContent = '💡 힌트: 블럭을 드래그하면 레이어 회전, 빈 공간을 드래그하면 카메라 회전, 2개 손가락 핀치로 줌 인/아웃!';
+        message.textContent = '💡 힌트: 블럭을 드래그하면 레이어 회전, 빈 공간을 드래그하면 카메라 회전, 2개 손가락으로 드래그하면 팬 이동!';
         message.classList.remove('hidden');
         
         setTimeout(() => {
