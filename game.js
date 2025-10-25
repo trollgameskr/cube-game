@@ -17,6 +17,8 @@
 	const focusBtn = document.getElementById('focus-btn');
 	const focusExitBtn = document.getElementById('focus-exit-btn');
 	const customizeKeysBtn = document.getElementById('customize-keys-btn');
+	const speedSlider = document.getElementById('speed-slider');
+	const speedValueEl = document.getElementById('speed-value');
 	const keyboardModal = document.getElementById('keyboard-modal');
 	const closeModalBtn = document.getElementById('close-modal-btn');
 	const saveKeysBtn = document.getElementById('save-keys-btn');
@@ -86,7 +88,8 @@
 		isBackFaceView: false,
 		gameStartTime: null,
 		gameInProgress: false,
-		lastGameTime: 0
+		lastGameTime: 0,
+		rotationSpeed: 200
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -556,6 +559,12 @@
 			if (event.target === guideModal) {
 				closeGuideModal();
 			}
+		});
+
+		// Speed control events
+		speedSlider?.addEventListener('input', (event) => {
+			state.rotationSpeed = parseInt(event.target.value);
+			speedValueEl.textContent = `${state.rotationSpeed}ms`;
 		});
 	}
 
@@ -1172,7 +1181,7 @@
 		const direction = move.direction === -1 ? -1 : 1;
 		const angle = computeActualAngle(axis, layer, direction);
 		const notation = move.notation || `${FACE_NOTATION[axis][layer]}${direction === 1 ? '' : "'"}`;
-		const duration = move.duration ?? 200;
+		const duration = move.duration ?? state.rotationSpeed;
 
 		return {
 			axis,
