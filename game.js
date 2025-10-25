@@ -1029,12 +1029,14 @@
 		document.body.classList.toggle('focus-mode');
 		const isFocusMode = document.body.classList.contains('focus-mode');
 		
-		if (isFocusMode) {
-			// Entering focus mode
-			focusBtn.textContent = '집중 모드 종료';
-		} else {
-			// Exiting focus mode
-			focusBtn.textContent = '집중 모드';
+		if (focusBtn) {
+			if (isFocusMode) {
+				// Entering focus mode
+				focusBtn.textContent = '집중 모드 종료';
+			} else {
+				// Exiting focus mode
+				focusBtn.textContent = '집중 모드';
+			}
 		}
 		
 		// Trigger resize to adjust canvas
