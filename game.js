@@ -523,6 +523,9 @@
 			if (event.code === 'Escape') {
 				event.preventDefault();
 				toggleFocusMode();
+				return;
+			}
+
 			// Check for transparency toggle
 			if (event.code === keyboardSettings.toggleTransparency) {
 				event.preventDefault();
@@ -880,15 +883,9 @@
 	}
 
 	function deriveDirectionFromAngleSign(angleSign, layer) {
-		const viewAlignment = layer === 1 ? 1 : -1;
-		let direction = -angleSign / viewAlignment;
-		if (direction > 0) {
-			return 1;
-		}
-		if (direction < 0) {
-			return -1;
-		}
-		return 1;
+		// The angleSign is already determined by testing which rotation direction
+		// best matches the drag vector, so we use it directly
+		return angleSign;
 	}
 
 	function projectDirectionToScreen(origin, direction) {
