@@ -365,8 +365,19 @@
 					mesh.receiveShadow = true;
 					mesh.position.set(x * spacing, y * spacing, z * spacing);
 
+					// Create invisible picking helper to cover gaps between cubes
+					// This makes dragging more forgiving - users can drag near edges
+					const pickingGeometry = new THREE.BoxGeometry(spacing, spacing, spacing);
+					const pickingMaterial = new THREE.MeshBasicMaterial({
+						visible: false
+					});
+					const pickingHelper = new THREE.Mesh(pickingGeometry, pickingMaterial);
+					pickingHelper.position.set(0, 0, 0); // Position relative to cubelet mesh
+					mesh.add(pickingHelper); // Add as child so it moves with the cubelet
+
 					const cubelet = {
 						mesh,
+						pickingHelper,
 						logicalPosition: new THREE.Vector3(x, y, z),
 						initialLogicalPosition: new THREE.Vector3(x, y, z),
 						orientation: {
@@ -382,6 +393,7 @@
 					};
 
 					mesh.userData.cubelet = cubelet;
+					pickingHelper.userData.cubelet = cubelet;
 					cubeGroup.add(mesh);
 					cubelets.push(cubelet);
 				}
@@ -1313,7 +1325,10 @@
 	function pickCubeFace(clientX, clientY) {
 		const ndc = clientToNdc(clientX, clientY);
 		raycaster.setFromCamera(ndc, camera);
-		const intersects = raycaster.intersectObjects(cubelets.map((c) => c.mesh));
+		// Raycast against picking helpers (invisible, larger boxes) instead of visible meshes
+		// This allows users to drag near edges without missing the cube
+		const pickingHelpers = cubelets.map((c) => c.pickingHelper);
+		const intersects = raycaster.intersectObjects(pickingHelpers);
 		if (!intersects.length) {
 			return null;
 		}
