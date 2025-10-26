@@ -193,7 +193,7 @@
 		scene.add(cubeGroup);
 
 		const cubeletSize = 0.95;
-		const spacing = 1.0;
+		const spacing = cubeletSize; // Match spacing to cubelet size for no gaps
 		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize);
 
 		const faceMaterialsCache = new Map();
