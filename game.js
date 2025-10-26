@@ -186,21 +186,6 @@
 		const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
 		rimLight.position.set(-8, -6, -4);
 		scene.add(rimLight);
-
-		const floor = new THREE.Mesh(
-			new THREE.CircleGeometry(6.2, 64),
-			new THREE.MeshStandardMaterial({
-				color: 0x0f172a,
-				roughness: 0.95,
-				metalness: 0.05,
-				transparent: true,
-				opacity: 0.9
-			})
-		);
-		floor.rotation.x = -Math.PI / 2;
-		floor.position.y = -2.2;
-		floor.receiveShadow = true;
-		scene.add(floor);
 	}
 
 	function buildCube() {
@@ -944,11 +929,7 @@
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
 		orbitState.theta = orbitState.startTheta - deltaX;
-		orbitState.phi = THREE.MathUtils.clamp(
-			orbitState.startPhi - deltaY,
-			cameraLimits.minPhi,
-			cameraLimits.maxPhi
-		);
+		orbitState.phi = orbitState.startPhi - deltaY;
 
 		updateCameraPosition();
 	}
@@ -1107,11 +1088,6 @@
 			rotationLayer = Math.round(cubelet.logicalPosition.z);
 		}
 
-		// Only allow rotation of edge layers (not the center)
-		if (!rotationLayer) {
-			return null;
-		}
-
 		// Determine the rotation direction by testing which way matches the drag best
 		const rotationAxisVector = AXIS_VECTORS[rotationAxisName];
 		const samplePoint = point.clone().add(dragTangent3D.clone().multiplyScalar(0.35));
@@ -1167,6 +1143,10 @@
 	}
 
 	function deriveDirectionFromAngleSign(angleSign, layer) {
+		if (layer === 0) {
+			// Middle layer: use consistent direction mapping across all axes
+			return angleSign > 0 ? 1 : -1;
+		}
 		const viewAlignment = layer === 1 ? 1 : -1;
 		let direction = -angleSign / viewAlignment;
 		if (direction > 0) {
@@ -1241,10 +1221,12 @@
 
 	function normalizeMove(move) {
 		const axis = move.axis;
-		const layer = move.layer === -1 ? -1 : 1;
+		const layer = move.layer;  // Allow -1, 0, and 1
 		const direction = move.direction === -1 ? -1 : 1;
 		const angle = computeActualAngle(axis, layer, direction);
-		const notation = move.notation || `${FACE_NOTATION[axis][layer]}${direction === 1 ? '' : "'"}`;
+		// Standard cube notation: M (x-axis middle), E (y-axis middle), S (z-axis middle)
+		const middleLayerNotation = axis === 'x' ? 'M' : (axis === 'y' ? 'E' : 'S');
+		const notation = move.notation || `${FACE_NOTATION[axis]?.[layer] || middleLayerNotation}${direction === 1 ? '' : "'"}`;
 		const duration = move.duration ?? state.rotationSpeed;
 
 		return {
@@ -1286,6 +1268,10 @@
 
 	function computeActualAngle(axis, layer, direction) {
 		const base = Math.PI / 2;
+		if (layer === 0) {
+			// Middle layer: use consistent direction mapping
+			return -direction * base;
+		}
 		const viewAlignment = layer === 1 ? 1 : -1;
 		return -direction * viewAlignment * base;
 	}
@@ -1435,10 +1421,13 @@
 		const options = [
 			{ axis: 'x', layer: 1 },
 			{ axis: 'x', layer: -1 },
+			{ axis: 'x', layer: 0 },
 			{ axis: 'y', layer: 1 },
 			{ axis: 'y', layer: -1 },
+			{ axis: 'y', layer: 0 },
 			{ axis: 'z', layer: 1 },
-			{ axis: 'z', layer: -1 }
+			{ axis: 'z', layer: -1 },
+			{ axis: 'z', layer: 0 }
 		];
 
 		let lastOption = null;
