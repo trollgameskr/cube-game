@@ -581,12 +581,6 @@ button:focus-visible {
         margin: 0 auto;
     }
     
-    .cube-section {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
     body {
         padding: 0.5rem;
     }
@@ -604,6 +598,7 @@ button:focus-visible {
     .actions .btn {
         flex: 1 1 auto;
         width: 100%;
+        min-width: 0;
     }
     
     /* Ensure proper spacing on small screens */
