@@ -1144,7 +1144,7 @@
 
 	function deriveDirectionFromAngleSign(angleSign, layer) {
 		if (layer === 0) {
-			// For middle layer, use same direction logic as left layer
+			// Middle layer: use consistent direction mapping across all axes
 			return angleSign > 0 ? 1 : -1;
 		}
 		const viewAlignment = layer === 1 ? 1 : -1;
@@ -1224,7 +1224,9 @@
 		const layer = move.layer;  // Allow -1, 0, and 1
 		const direction = move.direction === -1 ? -1 : 1;
 		const angle = computeActualAngle(axis, layer, direction);
-		const notation = move.notation || `${FACE_NOTATION[axis]?.[layer] || 'M'}${direction === 1 ? '' : "'"}`;
+		// Standard cube notation: M (x-axis middle), E (y-axis middle), S (z-axis middle)
+		const middleLayerNotation = axis === 'x' ? 'M' : (axis === 'y' ? 'E' : 'S');
+		const notation = move.notation || `${FACE_NOTATION[axis]?.[layer] || middleLayerNotation}${direction === 1 ? '' : "'"}`;
 		const duration = move.duration ?? state.rotationSpeed;
 
 		return {
@@ -1267,7 +1269,7 @@
 	function computeActualAngle(axis, layer, direction) {
 		const base = Math.PI / 2;
 		if (layer === 0) {
-			// Middle layer: rotate in the same direction as left layer
+			// Middle layer: use consistent direction mapping
 			return -direction * base;
 		}
 		const viewAlignment = layer === 1 ? 1 : -1;
