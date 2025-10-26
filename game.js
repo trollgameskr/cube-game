@@ -193,7 +193,7 @@
 		scene.add(cubeGroup);
 
 		const cubeletSize = 0.95;
-		const spacing = 1.05;
+		const spacing = 1.0;
 		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize);
 
 		const faceMaterialsCache = new Map();
@@ -1144,8 +1144,8 @@
 
 	function deriveDirectionFromAngleSign(angleSign, layer) {
 		if (layer === 0) {
-			// Middle layer: use consistent direction mapping across all axes
-			return angleSign > 0 ? 1 : -1;
+			// Middle layer: reverse the rotation direction
+			return angleSign > 0 ? -1 : 1;
 		}
 		const viewAlignment = layer === 1 ? 1 : -1;
 		let direction = -angleSign / viewAlignment;
