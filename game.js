@@ -902,6 +902,11 @@
 		updateCameraPosition();
 	}
 
+	function normalizeAngle(angle) {
+		// Normalize angle to [0, 2π] to prevent overflow
+		return ((angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+	}
+
 	function createPointerState(event) {
 		return {
 			pointerId: event.pointerId,
@@ -928,7 +933,7 @@
 		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
-		orbitState.theta = orbitState.startTheta - deltaX;
+		orbitState.theta = normalizeAngle(orbitState.startTheta - deltaX);
 		orbitState.phi = orbitState.startPhi - deltaY;
 
 		updateCameraPosition();
@@ -995,9 +1000,7 @@
 			// Only rotate if the angle change is significant enough to avoid jitter
 			if (Math.abs(angleDelta) > 0.01) {
 				// Rotate camera around the viewing axis (theta rotation)
-				orbitState.theta += angleDelta;
-				// Normalize theta to [0, 2π] to prevent overflow
-				orbitState.theta = ((orbitState.theta % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+				orbitState.theta = normalizeAngle(orbitState.theta + angleDelta);
 				updateCameraPosition();
 			}
 		}
