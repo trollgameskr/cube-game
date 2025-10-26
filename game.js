@@ -914,7 +914,7 @@
 			clientX: event.clientX,
 			clientY: event.clientY,
 			currentX: event.clientX,
-			currentY: event.currentY
+			currentY: event.clientY
 		};
 	}
 
