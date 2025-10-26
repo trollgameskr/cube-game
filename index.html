@@ -4,8 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="3x3 큐브 퍼즐 게임 - GitHub Pages용 웹앱">
+    <meta name="theme-color" content="#2b3a67">
     <title>3x3 큐브 퍼즐 게임</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
     <button type="button" id="focus-exit-btn" aria-label="집중 모드 종료">집중 모드 종료 (Esc)</button>
@@ -431,5 +436,20 @@
     
     <script type="module" src="lib/three-global.js"></script>
     <script src="game.js" defer></script>
+    
+    <!-- Service Worker Registration for PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/cube-game/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
