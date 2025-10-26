@@ -14,6 +14,7 @@
 </head>
 <body>
     <button type="button" id="focus-exit-btn" aria-label="집중 모드 종료">집중 모드 종료 (Esc)</button>
+    <button type="button" id="install-btn" aria-label="앱 설치" style="display: none;">📱 앱 설치</button>
     <div class="app">
         <header class="app-header">
             <h1>3D 3x3 큐브 게임</h1>
@@ -450,6 +451,44 @@
                     });
             });
         }
+    </script>
+    
+    <!-- PWA Installation Handler -->
+    <script>
+        let deferredPrompt;
+        const installBtn = document.getElementById('install-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show the install button
+            installBtn.style.display = 'block';
+            console.log('PWA install prompt is ready');
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) {
+                return;
+            }
+            // Show the install prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            // Clear the deferredPrompt for reuse
+            deferredPrompt = null;
+            // Hide the install button
+            installBtn.style.display = 'none';
+        });
+
+        window.addEventListener('appinstalled', () => {
+            // Hide the install button after successful installation
+            installBtn.style.display = 'none';
+            deferredPrompt = null;
+            console.log('PWA was installed successfully');
+        });
     </script>
 </body>
 </html>

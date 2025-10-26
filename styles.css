@@ -538,6 +538,34 @@ body.focus-mode #focus-exit-btn {
     transform: translateY(-1px);
 }
 
+/* Install button for PWA */
+#install-btn {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: var(--text);
+    padding: 0.7rem 1.2rem;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 0.9;
+    transition: opacity var(--transition), transform var(--transition);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+#install-btn:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+#install-btn:active {
+    transform: translateY(0);
+}
+
 /* Back view button in focus mode - make more visible */
 body.focus-mode .back-view-btn {
     z-index: 999;
