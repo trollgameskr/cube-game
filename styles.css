@@ -538,11 +538,13 @@ body.focus-mode #focus-exit-btn {
     transform: translateY(-1px);
 }
 
-/* Back view button in focus mode - make more visible */
+/* Back view button in focus mode - make more visible and position at bottom-left */
 body.focus-mode .back-view-btn {
     z-index: 999;
-    top: 20px;
-    right: 20px;
+    bottom: 20px;
+    left: 20px;
+    top: auto;
+    right: auto;
     width: 56px;
     height: 56px;
     font-size: 28px;

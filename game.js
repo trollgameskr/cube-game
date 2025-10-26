@@ -994,8 +994,6 @@
 		const distance = distanceBetweenPointers(p1, p2);
 		const angle = angleBetweenPointers(p1, p2);
 
-		const panDelta = midpoint.clone().sub(gestureState.lastMidpoint);
-		panCamera(panDelta.x, panDelta.y);
 		gestureState.lastMidpoint.copy(midpoint);
 
 		if (distance > 0 && gestureState.lastDistance > 0) {
@@ -1524,29 +1522,6 @@
 			cameraTarget.z + cameraDistance * sinPhi * cosTheta
 		);
 		camera.lookAt(cameraTarget);
-	}
-
-	function panCamera(deltaX, deltaY) {
-		if (deltaX === 0 && deltaY === 0) {
-			return;
-		}
-
-		const panSpeed = cameraDistance * 0.0016;
-		const rect = renderer.domElement.getBoundingClientRect();
-		const normalizedDeltaX = deltaX / rect.width;
-		const normalizedDeltaY = deltaY / rect.height;
-
-		const forward = tmpVec3
-			.subVectors(cameraTarget, camera.position)
-			.normalize();
-		const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-		const up = new THREE.Vector3().crossVectors(right, forward).normalize();
-
-		const move = right.multiplyScalar(-normalizedDeltaX * panSpeed * rect.width)
-			.add(up.multiplyScalar(normalizedDeltaY * panSpeed * rect.height));
-
-		cameraTarget.add(move);
-		camera.position.add(move);
 	}
 
 	function distanceBetweenPointers(p1, p2) {
