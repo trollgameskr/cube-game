@@ -61,13 +61,13 @@
 	};
 
 	const COLORS = {
-		base: 0x1f2937,
-		right: 0xef4444,
-		left: 0xf97316,
-		up: 0xf8fafc,
-		down: 0xfacc15,
-		front: 0x22c55e,
-		back: 0x3b82f6
+		base: 0x0a0a0a, // Darker black for better contrast
+		right: 0xff3333, // Brighter red
+		left: 0xff8833, // Brighter orange
+		up: 0xffffff,   // Pure white
+		down: 0xffdd00, // Brighter yellow
+		front: 0x00dd44, // Brighter green
+		back: 0x3388ff  // Brighter blue
 	};
 
 	const cubelets = [];
@@ -131,8 +131,10 @@
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
+	renderer.toneMappingExposure = 1.1; // Slightly brighter
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+	renderer.physicallyCorrectLights = true; // More realistic lighting
 	renderer.domElement.style.display = 'block';
 	renderer.domElement.style.width = '100%';
 	renderer.domElement.style.height = '100%';
@@ -146,6 +148,7 @@
 
 	const scene = new THREE.Scene();
 	scene.background = null;
+	scene.fog = new THREE.Fog(0x0a0f1e, 15, 30); // Add atmospheric depth
 
 	addEnvironment();
 	buildCube();
@@ -194,42 +197,148 @@
 	}, AUTO_SCRAMBLE_DELAY_MS);
 
 	function addEnvironment() {
-		scene.add(new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.85));
+		// Enhanced ambient lighting
+		scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 1.2));
 
-		const dirLight = new THREE.DirectionalLight(0xffffff, 1.05);
-		dirLight.position.set(6, 10, 8);
+		// Main directional light with enhanced shadow quality
+		const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+		dirLight.position.set(8, 12, 10);
 		dirLight.castShadow = true;
-		dirLight.shadow.mapSize.set(2048, 2048);
-		dirLight.shadow.camera.near = 2;
-		dirLight.shadow.camera.far = 30;
+		dirLight.shadow.mapSize.set(4096, 4096);
+		dirLight.shadow.camera.near = 1;
+		dirLight.shadow.camera.far = 35;
+		dirLight.shadow.bias = -0.0001;
+		dirLight.shadow.radius = 2;
 		scene.add(dirLight);
 
-		const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
-		rimLight.position.set(-8, -6, -4);
+		// Add fill light from the opposite side
+		const fillLight = new THREE.DirectionalLight(0x7dd3fc, 0.6);
+		fillLight.position.set(-6, 4, -8);
+		scene.add(fillLight);
+
+		// Rim light for edge definition
+		const rimLight = new THREE.DirectionalLight(0xa5f3fc, 0.8);
+		rimLight.position.set(-10, -8, -6);
 		scene.add(rimLight);
+
+		// Add point lights for extra sparkle
+		const pointLight1 = new THREE.PointLight(0xffffff, 0.5, 20);
+		pointLight1.position.set(5, 8, 5);
+		scene.add(pointLight1);
+
+		const pointLight2 = new THREE.PointLight(0x38bdf8, 0.4, 15);
+		pointLight2.position.set(-5, -5, 5);
+		scene.add(pointLight2);
+
+		// Add a subtle ground plane for reflection
+		const groundGeometry = new THREE.PlaneGeometry(20, 20);
+		const groundMaterial = new THREE.MeshStandardMaterial({
+			color: 0x0f172a,
+			roughness: 0.8,
+			metalness: 0.2,
+			opacity: 0.3,
+			transparent: true
+		});
+		const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+		ground.rotation.x = -Math.PI / 2;
+		ground.position.y = -2.5;
+		ground.receiveShadow = true;
+		scene.add(ground);
 	}
 
 	function buildCube() {
 		const cubeGroup = new THREE.Group();
 		scene.add(cubeGroup);
 
-		const cubeletSize = 0.95;
-		const spacing = cubeletSize; // Match spacing to cubelet size for no gaps
-		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize);
+		const cubeletSize = 0.92; // Slightly smaller for visible gaps
+		const spacing = 1.0; // Spacing between cubelets to show black body
+		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 2, 2, 2);
+		
+		// Add rounded edges to the geometry
+		const roundedGeometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 4, 4, 4);
+		
+		// Apply edge rounding by modifying vertex positions
+		const positionAttr = roundedGeometry.attributes.position;
+		const vertex = new THREE.Vector3();
+		const edgeRadius = 0.08; // Radius for rounded edges
+		
+		for (let i = 0; i < positionAttr.count; i++) {
+			vertex.fromBufferAttribute(positionAttr, i);
+			
+			// Calculate distance from center for each axis
+			const dx = Math.abs(vertex.x) - (cubeletSize / 2 - edgeRadius);
+			const dy = Math.abs(vertex.y) - (cubeletSize / 2 - edgeRadius);
+			const dz = Math.abs(vertex.z) - (cubeletSize / 2 - edgeRadius);
+			
+			// Round the corners and edges
+			if (dx > 0 && dy > 0 && dz > 0) {
+				// Corner rounding
+				const cornerDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+				if (cornerDist > 0) {
+					const factor = edgeRadius / cornerDist;
+					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
+					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
+					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
+				}
+			} else if (dx > 0 && dy > 0) {
+				// Edge rounding XY
+				const edgeDist = Math.sqrt(dx * dx + dy * dy);
+				if (edgeDist > 0) {
+					const factor = edgeRadius / edgeDist;
+					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
+					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
+				}
+			} else if (dx > 0 && dz > 0) {
+				// Edge rounding XZ
+				const edgeDist = Math.sqrt(dx * dx + dz * dz);
+				if (edgeDist > 0) {
+					const factor = edgeRadius / edgeDist;
+					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
+					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
+				}
+			} else if (dy > 0 && dz > 0) {
+				// Edge rounding YZ
+				const edgeDist = Math.sqrt(dy * dy + dz * dz);
+				if (edgeDist > 0) {
+					const factor = edgeRadius / edgeDist;
+					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
+					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
+				}
+			}
+			
+			positionAttr.setXYZ(i, vertex.x, vertex.y, vertex.z);
+		}
+		
+		roundedGeometry.computeVertexNormals();
 
 		const faceMaterialsCache = new Map();
 
 		const getFaceMaterial = (color) => {
 			if (!faceMaterialsCache.has(color)) {
-				const material = new THREE.MeshStandardMaterial({
-					color,
-					roughness: 0.35,
-					metalness: 0.1,
-					polygonOffset: true,
-					polygonOffsetFactor: color === COLORS.base ? 0 : -1,
-					emissive: color === COLORS.base ? 0x000000 : color,
-					emissiveIntensity: color === COLORS.base ? 0.05 : 0.12
-				});
+				const isColoredFace = color !== COLORS.base;
+				
+				// Use MeshPhysicalMaterial for colored stickers (glossy, reflective)
+				// Use MeshStandardMaterial for black body (matte)
+				const material = isColoredFace 
+					? new THREE.MeshPhysicalMaterial({
+						color,
+						roughness: 0.2,
+						metalness: 0.1,
+						reflectivity: 0.5,
+						polygonOffset: true,
+						polygonOffsetFactor: -1,
+						emissive: color,
+						emissiveIntensity: 0.1
+					})
+					: new THREE.MeshStandardMaterial({
+						color,
+						roughness: 0.9,
+						metalness: 0.15,
+						polygonOffset: true,
+						polygonOffsetFactor: 0,
+						emissive: 0x000000,
+						emissiveIntensity: 0
+					});
 				faceMaterialsCache.set(color, material);
 			}
 			return faceMaterialsCache.get(color);
@@ -251,7 +360,7 @@
 						getFaceMaterial(z === -1 ? COLORS.back : COLORS.base)
 					];
 
-					const mesh = new THREE.Mesh(geometry, materials);
+					const mesh = new THREE.Mesh(roundedGeometry, materials);
 					mesh.castShadow = true;
 					mesh.receiveShadow = true;
 					mesh.position.set(x * spacing, y * spacing, z * spacing);
@@ -1302,6 +1411,19 @@
 		const start = performance.now();
 		let previousAngle = 0;
 
+		// Temporarily enhance the rotating cubelets' appearance
+		cubeletGroup.forEach((cubelet) => {
+			if (Array.isArray(cubelet.mesh.material)) {
+				cubelet.mesh.material.forEach((material) => {
+					if (material.emissive && material.emissive.getHex() !== 0x000000) {
+						material.userData = material.userData || {};
+						material.userData.originalEmissiveIntensity = material.emissiveIntensity;
+						material.emissiveIntensity = 0.25; // Brighter during rotation
+					}
+				});
+			}
+		});
+
 		function step(now) {
 			const elapsed = now - start;
 			const t = Math.min(elapsed / duration, 1);
@@ -1318,6 +1440,16 @@
 			if (t < 1) {
 				requestAnimationFrame(step);
 			} else {
+				// Reset emissive intensity after rotation
+				cubeletGroup.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.userData && material.userData.originalEmissiveIntensity !== undefined) {
+								material.emissiveIntensity = material.userData.originalEmissiveIntensity;
+							}
+						});
+					}
+				});
 				onDone();
 			}
 		}
@@ -1431,10 +1563,54 @@
 		
 		setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
 		
+		// Add victory animation - make cube pulse and glow
+		celebrateCube();
+		
 		// Open victory modal after a short delay
 		setTimeout(() => {
 			openVictoryModal(state.moveCount, gameTime);
 		}, 800);
+	}
+
+	function celebrateCube() {
+		// Enhance emissive intensity for celebration effect
+		const duration = 2000;
+		const startTime = performance.now();
+		
+		function animateCelebration(now) {
+			const elapsed = now - startTime;
+			const t = elapsed / duration;
+			
+			if (t < 1) {
+				// Pulse effect - oscillate emissive intensity
+				const pulseIntensity = 0.3 + 0.3 * Math.sin(t * Math.PI * 6);
+				
+				cubelets.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.emissive && material.emissive.getHex() !== 0x000000) {
+								material.emissiveIntensity = pulseIntensity;
+							}
+						});
+					}
+				});
+				
+				requestAnimationFrame(animateCelebration);
+			} else {
+				// Reset to normal emissive intensity
+				cubelets.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.emissive && material.emissive.getHex() !== 0x000000) {
+								material.emissiveIntensity = 0.1;
+							}
+						});
+					}
+				});
+			}
+		}
+		
+		requestAnimationFrame(animateCelebration);
 	}
 
 	function scrambleCube() {

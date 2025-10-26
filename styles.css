@@ -13,6 +13,19 @@
     font-family: 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
 }
 
+/* Add animated gradient background to body */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+body {
+    background: linear-gradient(-45deg, #1e293b, #0f172a, #1a2332, #0f172a);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+}
+
 *,
 *::before,
 *::after {
@@ -22,7 +35,9 @@
 body {
     margin: 0;
     min-height: 100vh;
-    background: var(--bg);
+    background: linear-gradient(-45deg, #1e293b, #0f172a, #1a2332, #0f172a);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
     color: var(--text);
     display: flex;
     align-items: stretch;
@@ -46,7 +61,19 @@ body {
     border-radius: 16px;
     padding: clamp(1.25rem, 2vw, 1.75rem);
     backdrop-filter: blur(14px);
-    box-shadow: 0 22px 40px rgba(8, 15, 33, 0.35);
+    box-shadow: 
+        0 22px 40px rgba(8, 15, 33, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.app-header:hover,
+.control-section:hover,
+.cube-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 28px 50px rgba(8, 15, 33, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .app-header > h1 {
@@ -74,11 +101,30 @@ body {
     aspect-ratio: 1;
     min-height: 360px;
     margin: 0 auto;
-    background: #111;
+    background: radial-gradient(ellipse at center, #1a1f35 0%, #0a0f1e 100%);
     border-radius: 12px;
     overflow: visible;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 0 40px rgba(8, 15, 33, 0.45);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: 
+        inset 0 0 60px rgba(8, 15, 33, 0.6),
+        0 0 40px rgba(14, 165, 233, 0.15),
+        0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: stageGlow 3s ease-in-out infinite;
+}
+
+@keyframes stageGlow {
+    0%, 100% { 
+        box-shadow: 
+            inset 0 0 60px rgba(8, 15, 33, 0.6),
+            0 0 40px rgba(14, 165, 233, 0.15),
+            0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 
+            inset 0 0 60px rgba(8, 15, 33, 0.6),
+            0 0 50px rgba(14, 165, 233, 0.25),
+            0 20px 70px rgba(0, 0, 0, 0.6);
+    }
 }
 
 .cube-stage canvas {
@@ -186,31 +232,59 @@ body {
 
 .btn {
     border: 1px solid rgba(255, 255, 255, 0.28);
-    background: rgba(15, 23, 42, 0.25);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0.2));
     color: inherit;
     padding: 0.7rem 0.9rem;
     border-radius: 12px;
     font-weight: 600;
     letter-spacing: 0.04em;
     cursor: pointer;
-    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn:hover::before {
+    left: 100%;
 }
 
 .btn:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     border-color: var(--accent);
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.28);
+    box-shadow: 
+        0 12px 24px rgba(14, 165, 233, 0.28),
+        0 0 20px rgba(14, 165, 233, 0.15);
 }
 
 .btn:active {
     transform: translateY(0);
-    box-shadow: none;
+    box-shadow: 
+        0 4px 12px rgba(14, 165, 233, 0.2),
+        inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .btn.primary {
-    background: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
     border-color: var(--accent-strong);
     color: #0f172a;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.btn.primary:hover {
+    box-shadow: 
+        0 12px 28px rgba(14, 165, 233, 0.4),
+        0 0 30px rgba(14, 165, 233, 0.3);
 }
 
 .actions {
