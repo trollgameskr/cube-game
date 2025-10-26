@@ -929,6 +929,8 @@
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
 		orbitState.theta = orbitState.startTheta - deltaX;
+		// Normalize theta to [0, 2π] to prevent overflow
+		orbitState.theta = ((orbitState.theta % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
 		orbitState.phi = orbitState.startPhi - deltaY;
 
 		updateCameraPosition();
