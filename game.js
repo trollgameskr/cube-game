@@ -1413,6 +1413,19 @@
 		const start = performance.now();
 		let previousAngle = 0;
 
+		// Temporarily enhance the rotating cubelets' appearance
+		cubeletGroup.forEach((cubelet) => {
+			if (Array.isArray(cubelet.mesh.material)) {
+				cubelet.mesh.material.forEach((material) => {
+					if (material.emissive && material.emissive.getHex() !== 0x000000) {
+						material.userData = material.userData || {};
+						material.userData.originalEmissiveIntensity = material.emissiveIntensity;
+						material.emissiveIntensity = 0.25; // Brighter during rotation
+					}
+				});
+			}
+		});
+
 		function step(now) {
 			const elapsed = now - start;
 			const t = Math.min(elapsed / duration, 1);
@@ -1429,6 +1442,16 @@
 			if (t < 1) {
 				requestAnimationFrame(step);
 			} else {
+				// Reset emissive intensity after rotation
+				cubeletGroup.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.userData && material.userData.originalEmissiveIntensity !== undefined) {
+								material.emissiveIntensity = material.userData.originalEmissiveIntensity;
+							}
+						});
+					}
+				});
 				onDone();
 			}
 		}
@@ -1542,10 +1565,54 @@
 		
 		setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
 		
+		// Add victory animation - make cube pulse and glow
+		celebrateCube();
+		
 		// Open victory modal after a short delay
 		setTimeout(() => {
 			openVictoryModal(state.moveCount, gameTime);
 		}, 800);
+	}
+
+	function celebrateCube() {
+		// Enhance emissive intensity for celebration effect
+		const duration = 2000;
+		const startTime = performance.now();
+		
+		function animateCelebration(now) {
+			const elapsed = now - startTime;
+			const t = elapsed / duration;
+			
+			if (t < 1) {
+				// Pulse effect - oscillate emissive intensity
+				const pulseIntensity = 0.3 + 0.3 * Math.sin(t * Math.PI * 6);
+				
+				cubelets.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.emissive && material.emissive.getHex() !== 0x000000) {
+								material.emissiveIntensity = pulseIntensity;
+							}
+						});
+					}
+				});
+				
+				requestAnimationFrame(animateCelebration);
+			} else {
+				// Reset to normal emissive intensity
+				cubelets.forEach((cubelet) => {
+					if (Array.isArray(cubelet.mesh.material)) {
+						cubelet.mesh.material.forEach((material) => {
+							if (material.emissive && material.emissive.getHex() !== 0x000000) {
+								material.emissiveIntensity = 0.1;
+							}
+						});
+					}
+				});
+			}
+		}
+		
+		requestAnimationFrame(animateCelebration);
 	}
 
 	function scrambleCube() {
