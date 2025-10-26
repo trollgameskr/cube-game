@@ -1524,8 +1524,6 @@
 		camera.lookAt(cameraTarget);
 	}
 
-
-
 	function distanceBetweenPointers(p1, p2) {
 		return Math.hypot(p1.currentX - p2.currentX, p1.currentY - p2.currentY);
 	}
