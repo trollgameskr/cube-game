@@ -158,6 +158,27 @@
 	}
 	window.addEventListener('resize', onResize);
 
+	// Handle fullscreen change events
+	document.addEventListener('fullscreenchange', handleFullscreenChange);
+	document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+	document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+	function handleFullscreenChange() {
+		const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+		const isFocusMode = document.body.classList.contains('focus-mode');
+		
+		// If we exit fullscreen but still in focus mode, exit focus mode too
+		if (!isFullscreen && isFocusMode) {
+			document.body.classList.remove('focus-mode');
+			if (focusBtn) {
+				focusBtn.textContent = '집중 모드';
+			}
+			setTimeout(() => {
+				onResize();
+			}, 100);
+		}
+	}
+
 	bindUIEvents();
 	bindPointerEvents();
 	bindKeyboardShortcuts();
@@ -1561,9 +1582,13 @@
 			if (isFocusMode) {
 				// Entering focus mode
 				focusBtn.textContent = '집중 모드 종료';
+				// Request fullscreen
+				enterFullscreen();
 			} else {
 				// Exiting focus mode
 				focusBtn.textContent = '집중 모드';
+				// Exit fullscreen
+				exitFullscreen();
 			}
 		}
 		
@@ -1571,6 +1596,31 @@
 		setTimeout(() => {
 			onResize();
 		}, 100);
+	}
+
+	function enterFullscreen() {
+		const elem = document.documentElement;
+		if (elem.requestFullscreen) {
+			elem.requestFullscreen().catch(err => {
+				console.error('Failed to enter fullscreen mode:', err);
+			});
+		} else if (elem.webkitRequestFullscreen) { // Safari
+			elem.webkitRequestFullscreen();
+		} else if (elem.msRequestFullscreen) { // IE11
+			elem.msRequestFullscreen();
+		}
+	}
+
+	function exitFullscreen() {
+		if (document.exitFullscreen) {
+			document.exitFullscreen().catch(err => {
+				console.error('Failed to exit fullscreen mode:', err);
+			});
+		} else if (document.webkitExitFullscreen) { // Safari
+			document.webkitExitFullscreen();
+		} else if (document.msExitFullscreen) { // IE11
+			document.msExitFullscreen();
+		}
 	}
 
 	// ===== Leaderboard Functions =====
