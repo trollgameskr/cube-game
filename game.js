@@ -1602,7 +1602,7 @@
 		const elem = document.documentElement;
 		if (elem.requestFullscreen) {
 			elem.requestFullscreen().catch(err => {
-				console.log('Fullscreen request failed:', err);
+				console.error('Failed to enter fullscreen mode:', err);
 			});
 		} else if (elem.webkitRequestFullscreen) { // Safari
 			elem.webkitRequestFullscreen();
@@ -1614,7 +1614,7 @@
 	function exitFullscreen() {
 		if (document.exitFullscreen) {
 			document.exitFullscreen().catch(err => {
-				console.log('Exit fullscreen failed:', err);
+				console.error('Failed to exit fullscreen mode:', err);
 			});
 		} else if (document.webkitExitFullscreen) { // Safari
 			document.webkitExitFullscreen();

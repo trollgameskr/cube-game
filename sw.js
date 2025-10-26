@@ -17,7 +17,7 @@ self.addEventListener('install', event => {
         return cache.addAll(urlsToCache);
       })
       .catch(err => {
-        console.log('Cache failed:', err);
+        console.error('Failed to cache resources during service worker installation:', err);
       })
   );
 });
