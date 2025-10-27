@@ -728,6 +728,16 @@ body.focus-mode .back-view-btn {
     box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
 }
 
+/* Fix cube positioning in landscape focus mode on mobile */
+@media (max-width: 960px) and (orientation: landscape) {
+    body.focus-mode .cube-stage {
+        width: auto;
+        height: 90vh;
+        max-width: 90vh;
+        aspect-ratio: 1;
+    }
+}
+
 /* Leaderboard Styles */
 .leaderboard-section {
     background: var(--panel);
