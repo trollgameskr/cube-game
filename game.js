@@ -117,20 +117,35 @@
 	const keyboardSettings = loadKeyboardSettings();
 
 	const cameraTarget = new THREE.Vector3(0, 0, 0);
+	
+	// Initialize quaternion from initial spherical coordinates (theta=π/4, phi=π/4)
+	const initTheta = Math.PI / 4;
+	const initPhi = Math.PI / 4;
+	const initPosition = new THREE.Vector3(
+		Math.sin(initPhi) * Math.sin(initTheta),
+		Math.cos(initPhi),
+		Math.sin(initPhi) * Math.cos(initTheta)
+	).normalize();
+	
+	// Create initial quaternion that represents this camera orientation
+	// We need a quaternion that when applied to (0,0,1) gives us initPosition
+	const initQuat = new THREE.Quaternion();
+	const upVector = new THREE.Vector3(0, 1, 0);
+	const defaultForward = new THREE.Vector3(0, 0, 1);
+	// Set quaternion to rotate from defaultForward to initPosition
+	initQuat.setFromUnitVectors(defaultForward, initPosition);
+	
 	const orbitState = {
-		theta: Math.PI / 4,
-		phi: Math.PI / 4,
+		quaternion: initQuat.clone(),  // Current camera rotation as quaternion
 		pointerId: null,
-		startTheta: null,
-		startPhi: null,
+		startQuaternion: null,
 		startPos: null
 	};
 
 	const cameraLimits = {
 		minDistance: 3.5,
-		maxDistance: 24,
-		minPhi: 0.1,  // Prevent gimbal lock at poles (small epsilon from 0)
-		maxPhi: Math.PI - 0.1  // Prevent gimbal lock at poles (small epsilon from π)
+		maxDistance: 24
+		// No phi limits - quaternion rotation allows full 360° rotation
 	};
 
 	let cameraDistance = 7.4;
@@ -1342,21 +1357,8 @@
 
 	function startOrbit(pointerId, clientX, clientY) {
 		orbitState.pointerId = pointerId;
-		orbitState.startTheta = orbitState.theta;
-		orbitState.startPhi = orbitState.phi;
+		orbitState.startQuaternion = orbitState.quaternion.clone();
 		orbitState.startPos = new THREE.Vector2(clientX, clientY);
-		
-		// Capture camera orientation at drag start for consistent rotation interpretation
-		// Calculate camera's right and up vectors relative to the view direction
-		const viewDir = new THREE.Vector3();
-		camera.getWorldDirection(viewDir);
-		const cameraRight = new THREE.Vector3();
-		cameraRight.crossVectors(camera.up, viewDir).normalize();
-		const cameraUp = camera.up.clone().normalize();
-		
-		// Store these for use during drag
-		orbitState.startCameraRight = cameraRight;
-		orbitState.startCameraUp = cameraUp;
 	}
 
 	function updateOrbit(clientX, clientY) {
@@ -1367,13 +1369,28 @@
 		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
-		orbitState.theta = normalizeAngle(orbitState.startTheta - deltaX);
-		// Clamp phi to prevent gimbal lock and direction reversal at poles
-		orbitState.phi = THREE.MathUtils.clamp(
-			orbitState.startPhi - deltaY,
-			cameraLimits.minPhi,
-			cameraLimits.maxPhi
-		);
+		// Quaternion-based rotation: apply incremental rotations around world axes
+		// Horizontal drag (deltaX) rotates around world Y-axis (up)
+		// Vertical drag (deltaY) rotates around camera's current right axis
+		
+		// Start with the initial quaternion from drag start
+		const newQuat = orbitState.startQuaternion.clone();
+		
+		// Apply horizontal rotation around world Y-axis
+		const yAxisQuat = new THREE.Quaternion();
+		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
+		newQuat.premultiply(yAxisQuat);
+		
+		// Get the camera's right vector from current quaternion for vertical rotation
+		// Apply vertical rotation around the right axis
+		const rightAxis = new THREE.Vector3(1, 0, 0);
+		rightAxis.applyQuaternion(orbitState.startQuaternion);
+		const xAxisQuat = new THREE.Quaternion();
+		xAxisQuat.setFromAxisAngle(rightAxis, -deltaY);
+		newQuat.premultiply(xAxisQuat);
+		
+		// Update the orbit state with new quaternion
+		orbitState.quaternion.copy(newQuat);
 
 		updateCameraPosition();
 	}
@@ -1436,8 +1453,16 @@
 			
 			// Only rotate if the angle change is significant enough to avoid jitter
 			if (Math.abs(angleDelta) > 0.01) {
-				// Rotate camera around the viewing axis (theta rotation)
-				orbitState.theta = normalizeAngle(orbitState.theta + angleDelta);
+				// Rotate camera around the viewing axis (roll)
+				// Get the current forward direction (toward target)
+				const forward = new THREE.Vector3();
+				forward.subVectors(cameraTarget, camera.position).normalize();
+				
+				// Apply rotation around the forward axis
+				const rollQuat = new THREE.Quaternion();
+				rollQuat.setFromAxisAngle(forward, angleDelta);
+				orbitState.quaternion.premultiply(rollQuat);
+				
 				updateCameraPosition();
 			}
 		}
@@ -2085,16 +2110,15 @@
 	}
 
 	function updateCameraPosition() {
-		const sinPhi = Math.sin(orbitState.phi);
-		const cosPhi = Math.cos(orbitState.phi);
-		const sinTheta = Math.sin(orbitState.theta);
-		const cosTheta = Math.cos(orbitState.theta);
-
-		camera.position.set(
-			cameraTarget.x + cameraDistance * sinPhi * sinTheta,
-			cameraTarget.y + cameraDistance * cosPhi,
-			cameraTarget.z + cameraDistance * sinPhi * cosTheta
-		);
+		// Calculate camera position using quaternion rotation
+		// Start with a base position vector pointing along +Z axis at the desired distance
+		const basePosition = new THREE.Vector3(0, 0, cameraDistance);
+		
+		// Apply the quaternion rotation to get the actual camera position
+		basePosition.applyQuaternion(orbitState.quaternion);
+		
+		// Position camera relative to target
+		camera.position.copy(cameraTarget).add(basePosition);
 		camera.lookAt(cameraTarget);
 	}
 
