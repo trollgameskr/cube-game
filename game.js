@@ -1384,7 +1384,11 @@
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
 		orbitState.theta = normalizeAngle(orbitState.startTheta - deltaX);
-		orbitState.phi = orbitState.startPhi - deltaY;
+		orbitState.phi = THREE.MathUtils.clamp(
+			orbitState.startPhi - deltaY,
+			cameraLimits.minPhi,
+			cameraLimits.maxPhi
+		);
 
 		updateCameraPosition();
 	}
