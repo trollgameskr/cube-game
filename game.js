@@ -383,13 +383,17 @@
 		};
 
 		// Calculate bounds for the grid
+		// For odd cubes (3x3, 5x5): positions are integers from -(n-1)/2 to (n-1)/2
+		// For even cubes (2x2, 4x4): positions are half-integers from -(n-1)/2 to (n-1)/2
 		const halfSize = (n - 1) / 2;
+		const isEven = n % 2 === 0;
+		const step = 1; // Always use step of 1
 		
-		for (let x = -halfSize; x <= halfSize; x += 1) {
-			for (let y = -halfSize; y <= halfSize; y += 1) {
-				for (let z = -halfSize; z <= halfSize; z += 1) {
-					// Skip the center piece for all cube sizes (it's never visible)
-					if (x === 0 && y === 0 && z === 0 && n % 2 === 1) {
+		for (let x = -halfSize; x <= halfSize; x += step) {
+			for (let y = -halfSize; y <= halfSize; y += step) {
+				for (let z = -halfSize; z <= halfSize; z += step) {
+					// Skip the center piece for odd cubes only (it's never visible)
+					if (x === 0 && y === 0 && z === 0 && !isEven) {
 						continue;
 					}
 
@@ -1328,17 +1332,29 @@
 
 		let rotationAxisName;
 		let rotationLayer;
+		
+		// Helper to get the layer from position (handles both even and odd cubes)
+		const getLayer = (value) => {
+			const isEven = state.cubeSize % 2 === 0;
+			if (isEven) {
+				// For even cubes, snap to nearest 0.5 increment
+				return Math.round(value * 2) / 2;
+			} else {
+				// For odd cubes, snap to integers
+				return Math.round(value);
+			}
+		};
 
 		if (absX >= absY && absX >= absZ) {
 			rotationAxisName = 'x';
 			// Layer is determined by the cubelet's position on this axis
-			rotationLayer = Math.round(cubelet.logicalPosition.x);
+			rotationLayer = getLayer(cubelet.logicalPosition.x);
 		} else if (absY >= absX && absY >= absZ) {
 			rotationAxisName = 'y';
-			rotationLayer = Math.round(cubelet.logicalPosition.y);
+			rotationLayer = getLayer(cubelet.logicalPosition.y);
 		} else {
 			rotationAxisName = 'z';
-			rotationLayer = Math.round(cubelet.logicalPosition.z);
+			rotationLayer = getLayer(cubelet.logicalPosition.z);
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
@@ -1518,7 +1534,13 @@
 		}
 
 		const move = moveQueue.shift();
-		const layerCubelets = cubelets.filter((cubelet) => Math.round(cubelet.logicalPosition[move.axis]) === move.layer);
+		// For even-sized cubes, positions can be fractional (e.g., 0.5, 1.5)
+		// We need to compare with a small tolerance instead of using Math.round()
+		const tolerance = 0.01;
+		const layerCubelets = cubelets.filter((cubelet) => {
+			const pos = cubelet.logicalPosition[move.axis];
+			return Math.abs(pos - move.layer) < tolerance;
+		});
 		const axisVector = AXIS_VECTORS[move.axis].clone();
 		const rotationMatrix4 = tmpMatrix4.makeRotationAxis(axisVector, move.angle);
 		const rotationMatrix3 = tmpMatrix3.setFromMatrix4(rotationMatrix4);
@@ -1603,13 +1625,25 @@
 
 	function finalizeLayer(cubeletGroup, rotationMatrix3) {
 		const spacing = scene.userData.spacing;
+		const isEven = state.cubeSize % 2 === 0;
+		
+		// Helper function to snap to correct grid positions
+		const snapToGrid = (value) => {
+			if (isEven) {
+				// For even cubes, snap to nearest 0.5 increment (e.g., -1.5, -0.5, 0.5, 1.5)
+				return Math.round(value * 2) / 2;
+			} else {
+				// For odd cubes, snap to integers (e.g., -2, -1, 0, 1, 2)
+				return Math.round(value);
+			}
+		};
 
 		cubeletGroup.forEach((cubelet) => {
 			cubelet.logicalPosition.applyMatrix3(rotationMatrix3);
 			cubelet.logicalPosition.set(
-				Math.round(cubelet.logicalPosition.x),
-				Math.round(cubelet.logicalPosition.y),
-				Math.round(cubelet.logicalPosition.z)
+				snapToGrid(cubelet.logicalPosition.x),
+				snapToGrid(cubelet.logicalPosition.y),
+				snapToGrid(cubelet.logicalPosition.z)
 			);
 
 			cubelet.orientation.x.applyMatrix3(rotationMatrix3);
@@ -1767,6 +1801,7 @@
 		// Generate all possible layer options based on cube size
 		const axes = ['x', 'y', 'z'];
 		for (const axis of axes) {
+			// Always use step of 1 to match how cubelets are created
 			for (let layer = -halfSize; layer <= halfSize; layer += 1) {
 				options.push({ axis, layer });
 			}
