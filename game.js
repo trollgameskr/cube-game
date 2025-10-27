@@ -277,6 +277,51 @@
 		scene.add(ground);
 	}
 
+	// Helper function: Get size multiplier for mirror cube pieces based on layer position
+	function getMirrorSizeMultiplier(pos, halfSize, isMirrorMode) {
+		if (!isMirrorMode) return 1.0;
+		
+		// Normalize position to 0-1 range (0 = smallest layer, 1 = largest layer)
+		const normalized = (pos + halfSize) / (halfSize * 2);
+		
+		// Use specified ratios: 1행/열:14, 2행/열:19, 3행/열:24
+		// Layer sizes: 14, 19, 24 (relative to middle layer 19 as baseline)
+		// Multipliers: 14/19 ≈ 0.737, 19/19 = 1.0, 24/19 ≈ 1.263
+		const MIN_RATIO = 14 / 19;  // ≈ 0.737
+		const MAX_RATIO = 24 / 19;  // ≈ 1.263
+		return MIN_RATIO + (normalized * (MAX_RATIO - MIN_RATIO));
+	}
+	
+	// Helper function: Calculate physical position for mirror cube pieces
+	// so that pieces touch each other (no gaps between layers)
+	function getMirrorPosition(pos, halfSize, cubeletSize, spacing, isMirrorMode) {
+		if (!isMirrorMode) return pos * spacing;
+		
+		// Calculate cumulative position from the center (0)
+		// Pieces should touch each other, so position = sum of all piece sizes before this one
+		const step = 1;
+		let cumulativePos = 0;
+		
+		if (pos > 0) {
+			// Moving in positive direction from center
+			for (let p = 0; p < pos; p += step) {
+				const currentSize = cubeletSize * getMirrorSizeMultiplier(p, halfSize, isMirrorMode);
+				const nextSize = cubeletSize * getMirrorSizeMultiplier(p + step, halfSize, isMirrorMode);
+				cumulativePos += (currentSize + nextSize) / 2;
+			}
+		} else if (pos < 0) {
+			// Moving in negative direction from center
+			for (let p = 0; p > pos; p -= step) {
+				const currentSize = cubeletSize * getMirrorSizeMultiplier(p, halfSize, isMirrorMode);
+				const prevSize = cubeletSize * getMirrorSizeMultiplier(p - step, halfSize, isMirrorMode);
+				cumulativePos -= (currentSize + prevSize) / 2;
+			}
+		}
+		// pos === 0 stays at 0
+		
+		return cumulativePos;
+	}
+
 	function buildCube() {
 		// Clear existing cubelets
 		cubelets.length = 0;
@@ -303,22 +348,6 @@
 		const isMirrorMode = state.cubeType === 'mirror';
 		const cubeletSize = 0.92; // Slightly smaller for visible gaps
 		const spacing = 1.0; // Spacing between cubelets to show black body
-		
-		// For mirror cube, define size multipliers for each layer
-		// Each layer gets a different thickness to create the shape-shifting effect
-		const getMirrorSizeMultiplier = (pos, halfSize) => {
-			if (!isMirrorMode) return 1.0;
-			
-			// Normalize position to 0-1 range (0 = smallest layer, 1 = largest layer)
-			const normalized = (pos + halfSize) / (halfSize * 2);
-			
-			// Use specified ratios: 1행/열:14, 2행/열:19, 3행/열:24
-			// Layer sizes: 14, 19, 24 (relative to middle layer 19 as baseline)
-			// Multipliers: 14/19 ≈ 0.737, 19/19 = 1.0, 24/19 ≈ 1.263
-			const MIN_RATIO = 14 / 19;  // ≈ 0.737
-			const MAX_RATIO = 24 / 19;  // ≈ 1.263
-			return MIN_RATIO + (normalized * (MAX_RATIO - MIN_RATIO));
-		};
 		
 		// Mirror cube configuration
 		const MIRROR_COLOR = 0xFFE87C; // Much brighter golden color (훨씬 밝은 금색)
@@ -463,9 +492,9 @@
 					// For mirror mode, calculate individual piece dimensions
 					let pieceGeometry;
 					if (isMirrorMode) {
-						const sizeX = cubeletSize * getMirrorSizeMultiplier(x, halfSize);
-						const sizeY = cubeletSize * getMirrorSizeMultiplier(y, halfSize);
-						const sizeZ = cubeletSize * getMirrorSizeMultiplier(z, halfSize);
+						const sizeX = cubeletSize * getMirrorSizeMultiplier(x, halfSize, isMirrorMode);
+						const sizeY = cubeletSize * getMirrorSizeMultiplier(y, halfSize, isMirrorMode);
+						const sizeZ = cubeletSize * getMirrorSizeMultiplier(z, halfSize, isMirrorMode);
 						pieceGeometry = createRoundedGeometry(sizeX, sizeY, sizeZ);
 					} else {
 						pieceGeometry = roundedGeometry;
@@ -494,7 +523,12 @@
 					const mesh = new THREE.Mesh(pieceGeometry, materials);
 					mesh.castShadow = true;
 					mesh.receiveShadow = true;
-					mesh.position.set(x * spacing, y * spacing, z * spacing);
+					
+					// For mirror mode, use calculated positions; for normal mode, use uniform spacing
+					const posX = isMirrorMode ? getMirrorPosition(x, halfSize, cubeletSize, spacing, isMirrorMode) : x * spacing;
+					const posY = isMirrorMode ? getMirrorPosition(y, halfSize, cubeletSize, spacing, isMirrorMode) : y * spacing;
+					const posZ = isMirrorMode ? getMirrorPosition(z, halfSize, cubeletSize, spacing, isMirrorMode) : z * spacing;
+					mesh.position.set(posX, posY, posZ);
 
 					// Create invisible picking helper to cover gaps between cubes
 					// This makes dragging more forgiving - users can drag near edges
@@ -511,6 +545,7 @@
 						pickingHelper,
 						logicalPosition: new THREE.Vector3(x, y, z),
 						initialLogicalPosition: new THREE.Vector3(x, y, z),
+						initialPhysicalPosition: new THREE.Vector3(posX, posY, posZ),
 						orientation: {
 							x: new THREE.Vector3(1, 0, 0),
 							y: new THREE.Vector3(0, 1, 0),
@@ -535,46 +570,13 @@
 		if (isMirrorMode) {
 			cubeGroup.rotation.set(MIRROR_TILT_X, MIRROR_TILT_Y, MIRROR_TILT_Z); // Tilted axes for visual appeal
 			
-			// Calculate weighted center offset for mirror cube
-			// Since pieces have different sizes based on position (14:19:24 ratio),
-			// the geometric center shifts from the origin. We need to compensate.
-			let totalWeight = 0;
-			let weightedCenterX = 0;
-			let weightedCenterY = 0;
-			let weightedCenterZ = 0;
-			
-			cubelets.forEach((cubelet) => {
-				const x = cubelet.logicalPosition.x;
-				const y = cubelet.logicalPosition.y;
-				const z = cubelet.logicalPosition.z;
-				
-				// Weight is proportional to the volume of the piece
-				const sizeX = getMirrorSizeMultiplier(x, halfSize);
-				const sizeY = getMirrorSizeMultiplier(y, halfSize);
-				const sizeZ = getMirrorSizeMultiplier(z, halfSize);
-				const weight = sizeX * sizeY * sizeZ;
-				
-				totalWeight += weight;
-				weightedCenterX += x * spacing * weight;
-				weightedCenterY += y * spacing * weight;
-				weightedCenterZ += z * spacing * weight;
-			});
-			
-			// Calculate the weighted center
-			const centerOffsetX = weightedCenterX / totalWeight;
-			const centerOffsetY = weightedCenterY / totalWeight;
-			const centerOffsetZ = weightedCenterZ / totalWeight;
-			
-			// Adjust each piece position to center the cube at origin
-			cubelets.forEach((cubelet) => {
-				cubelet.mesh.position.x -= centerOffsetX;
-				cubelet.mesh.position.y -= centerOffsetY;
-				cubelet.mesh.position.z -= centerOffsetZ;
-			});
+			// Since we're positioning pieces based on their actual sizes (touching each other),
+			// the cube is already centered around the origin. No additional offset needed.
 		}
 
 		scene.userData.cubeGroup = cubeGroup;
 		scene.userData.spacing = spacing;
+		scene.userData.cubeletSize = cubeletSize;
 		scene.userData.cubeSize = n;
 		scene.userData.halfSize = halfSize;
 	}
@@ -587,11 +589,17 @@
 			cubelet.orientation.y.copy(cubelet.initialOrientation.y);
 			cubelet.orientation.z.copy(cubelet.initialOrientation.z);
 
-			cubelet.mesh.position.set(
-				cubelet.logicalPosition.x * spacing,
-				cubelet.logicalPosition.y * spacing,
-				cubelet.logicalPosition.z * spacing
-			);
+			// Use stored initial physical position (important for mirror cube mode)
+			if (cubelet.initialPhysicalPosition) {
+				cubelet.mesh.position.copy(cubelet.initialPhysicalPosition);
+			} else {
+				// Fallback for normal cubes or old data
+				cubelet.mesh.position.set(
+					cubelet.logicalPosition.x * spacing,
+					cubelet.logicalPosition.y * spacing,
+					cubelet.logicalPosition.z * spacing
+				);
+			}
 
 			const basisMatrix = new THREE.Matrix4().makeBasis(
 				cubelet.orientation.x,
@@ -1805,6 +1813,9 @@
 
 	function finalizeLayer(cubeletGroup, rotationMatrix3) {
 		const spacing = scene.userData.spacing;
+		const cubeletSize = scene.userData.cubeletSize || 0.92;
+		const halfSize = scene.userData.halfSize || 1;
+		const isMirrorMode = state.cubeType === 'mirror';
 		const isEven = state.cubeSize % 2 === 0;
 		
 		// Helper function to snap to correct grid positions
@@ -1846,11 +1857,11 @@
 				Math.round(cubelet.orientation.z.z)
 			);
 
-			cubelet.mesh.position.set(
-				cubelet.logicalPosition.x * spacing,
-				cubelet.logicalPosition.y * spacing,
-				cubelet.logicalPosition.z * spacing
-			);
+			// For mirror mode, use calculated positions; for normal mode, use uniform spacing
+			const posX = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.x, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.x * spacing;
+			const posY = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.y, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.y * spacing;
+			const posZ = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.z, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.z * spacing;
+			cubelet.mesh.position.set(posX, posY, posZ);
 
 			const basisMatrix = new THREE.Matrix4().makeBasis(
 				cubelet.orientation.x,
