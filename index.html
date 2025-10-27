@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="3x3 큐브 퍼즐 게임 - GitHub Pages용 웹앱">
+    <meta name="description" content="2x2부터 7x7까지 다양한 크기의 큐브 퍼즐 게임 - GitHub Pages용 웹앱">
     <meta name="theme-color" content="#2b3a67">
-    <title>3x3 큐브 퍼즐 게임</title>
+    <title>큐브 퍼즐 게임</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -16,8 +16,8 @@
     <button type="button" id="focus-exit-btn" aria-label="집중 모드 종료">집중 모드 종료 (Esc)</button>
     <div class="app">
         <header class="app-header">
-            <h1>3D 3x3 큐브 게임</h1>
-            <p>큐브를 드래그해 회전하고, 빈 공간을 드래그해 카메라를 회전하세요. 핀치나 휠로 확대/축소할 수 있습니다.</p>
+            <h1>3D 큐브 게임</h1>
+            <p>큐브를 드래그해 회전하고, 빈 공간을 드래그해 카메라를 회전하세요. 핀치나 휠로 확대/축소할 수 있습니다. 2x2부터 7x7까지 다양한 크기의 큐브를 즐겨보세요!</p>
         </header>
 
         <main class="app-main">
@@ -50,6 +50,18 @@
                 <div class="speed-control">
                     <label for="speed-slider">회전 속도: <span id="speed-value">200ms</span></label>
                     <input type="range" id="speed-slider" min="50" max="1000" value="200" step="50">
+                </div>
+
+                <div class="cube-size-control">
+                    <label for="cube-size-select">큐브 크기:</label>
+                    <select id="cube-size-select" class="cube-size-select">
+                        <option value="2">2x2</option>
+                        <option value="3" selected>3x3</option>
+                        <option value="4">4x4</option>
+                        <option value="5">5x5</option>
+                        <option value="6">6x6</option>
+                        <option value="7">7x7</option>
+                    </select>
                 </div>
 
                 <div class="hotkeys">
