@@ -749,35 +749,85 @@
 		
 		cubelets.forEach((cubelet) => {
 			if (Array.isArray(cubelet.mesh.material)) {
-				cubelet.mesh.material.forEach((material) => {
-					if (state.isBackFaceView) {
-						// In back face view mode:
-						// - Hide interior (base color) faces
-						// - Show back faces of colored materials
-						if (material.color.getHex() === COLORS.base) {
-							material.visible = false;
-						} else {
-							material.side = THREE.BackSide;
-						}
-					} else {
-						// In front face view mode: restore default
-						material.visible = true;
-						material.side = THREE.FrontSide;
+				if (state.isBackFaceView) {
+					// Store original materials for restoration
+					if (!cubelet.originalMaterials) {
+						cubelet.originalMaterials = cubelet.mesh.material.slice();
 					}
-					material.needsUpdate = true;
-				});
+					
+					// Create basic materials for pure color rendering (no lighting)
+					const basicMaterials = cubelet.mesh.material.map((material) => {
+						const color = material.color.getHex();
+						if (color === COLORS.base) {
+							// Hide interior (base color) faces
+							return new THREE.MeshBasicMaterial({
+								color: color,
+								visible: false,
+								side: THREE.BackSide
+							});
+						} else {
+							// Show back faces with pure colors (no lighting effects)
+							return new THREE.MeshBasicMaterial({
+								color: color,
+								side: THREE.BackSide
+							});
+						}
+					});
+					cubelet.mesh.material = basicMaterials;
+				} else {
+					// Restore original physically-based materials
+					if (cubelet.originalMaterials) {
+						// Dispose of basic materials
+						cubelet.mesh.material.forEach((material) => {
+							material.dispose();
+						});
+						
+						cubelet.mesh.material = cubelet.originalMaterials;
+						cubelet.originalMaterials.forEach((material) => {
+							material.visible = true;
+							material.side = THREE.FrontSide;
+							material.needsUpdate = true;
+						});
+						
+						// Clean up reference to prevent memory leak
+						delete cubelet.originalMaterials;
+					}
+				}
 			} else {
 				if (state.isBackFaceView) {
-					if (cubelet.mesh.material.color.getHex() === COLORS.base) {
-						cubelet.mesh.material.visible = false;
+					// Store original material for restoration
+					if (!cubelet.originalMaterial) {
+						cubelet.originalMaterial = cubelet.mesh.material;
+					}
+					
+					const color = cubelet.mesh.material.color.getHex();
+					if (color === COLORS.base) {
+						cubelet.mesh.material = new THREE.MeshBasicMaterial({
+							color: color,
+							visible: false,
+							side: THREE.BackSide
+						});
 					} else {
-						cubelet.mesh.material.side = THREE.BackSide;
+						cubelet.mesh.material = new THREE.MeshBasicMaterial({
+							color: color,
+							side: THREE.BackSide
+						});
 					}
 				} else {
-					cubelet.mesh.material.visible = true;
-					cubelet.mesh.material.side = THREE.FrontSide;
+					// Restore original physically-based material
+					if (cubelet.originalMaterial) {
+						// Dispose of basic material
+						cubelet.mesh.material.dispose();
+						
+						cubelet.mesh.material = cubelet.originalMaterial;
+						cubelet.mesh.material.visible = true;
+						cubelet.mesh.material.side = THREE.FrontSide;
+						cubelet.mesh.material.needsUpdate = true;
+						
+						// Clean up reference to prevent memory leak
+						delete cubelet.originalMaterial;
+					}
 				}
-				cubelet.mesh.material.needsUpdate = true;
 			}
 		});
 		
