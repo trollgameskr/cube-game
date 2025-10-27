@@ -130,7 +130,7 @@
 		minPhi: 0.2,
 		maxPhi: Math.PI - 0.2,
 		minDistance: 3.5,
-		maxDistance: 12
+		maxDistance: 24
 	};
 
 	let cameraDistance = 7.4;
@@ -171,8 +171,9 @@
 		setMessage(`큐브 크기가 ${newSize}x${newSize}로 변경되었습니다. 섞기 버튼을 눌러주세요!`);
 		
 		// Adjust camera distance based on cube size
+		// Use a larger multiplier to ensure larger cubes are fully visible from the start
 		const baseDist = 7.4;
-		cameraDistance = baseDist + (newSize - 3) * 1.2;
+		cameraDistance = baseDist + (newSize - 3) * 2.0;
 		updateCameraPosition();
 	}
 
