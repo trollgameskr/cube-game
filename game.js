@@ -309,18 +309,21 @@
 		const getMirrorSizeMultiplier = (pos, halfSize) => {
 			if (!isMirrorMode) return 1.0;
 			
-			// Normalize position to 0-1 range
+			// Normalize position to 0-1 range (0 = smallest layer, 1 = largest layer)
 			const normalized = (pos + halfSize) / (halfSize * 2);
 			
-			// Use linear scaling for size differences
-			// Thin pieces: MIN_MIRROR_SCALE, Thick: MIN_MIRROR_SCALE + MIRROR_SCALE_RANGE
-			return MIN_MIRROR_SCALE + (normalized * MIRROR_SCALE_RANGE);
+			// Use specified ratios: 1행/열:14, 2행/열:19, 3행/열:24
+			// Layer sizes: 14, 19, 24 (relative to middle layer 19 as baseline)
+			// Multipliers: 14/19 ≈ 0.737, 19/19 = 1.0, 24/19 ≈ 1.263
+			const MIN_RATIO = 14 / 19;  // ≈ 0.737
+			const MAX_RATIO = 24 / 19;  // ≈ 1.263
+			return MIN_RATIO + (normalized * (MAX_RATIO - MIN_RATIO));
 		};
 		
 		// Mirror cube configuration
-		const MIRROR_COLOR = 0xE8E8E8; // Bright metallic silver
-		const MIN_MIRROR_SCALE = 0.6; // Thinnest piece scale
-		const MIRROR_SCALE_RANGE = 0.8; // Range from thinnest to thickest (0.6 to 1.4)
+		const MIRROR_COLOR = 0xFFD700; // Shiny golden color (금색)
+		const MIN_MIRROR_SCALE = 0.6; // Thinnest piece scale (deprecated, using ratios instead)
+		const MIRROR_SCALE_RANGE = 0.8; // Range from thinnest to thickest (deprecated, using ratios instead)
 		const MIRROR_TILT_X = 0.15; // X-axis rotation for tilted aesthetic
 		const MIRROR_TILT_Y = 0.25; // Y-axis rotation for tilted aesthetic
 		const MIRROR_TILT_Z = 0.1;  // Z-axis rotation for tilted aesthetic
@@ -398,15 +401,15 @@
 				let material;
 				
 				if (isMirror) {
-					// Mirror cube: all pieces are metallic silver/chrome with enhanced brightness
+					// Mirror cube: all pieces are metallic gold with enhanced brightness
 					material = new THREE.MeshPhysicalMaterial({
-						color: 0xE8E8E8, // Brighter silver
+						color: color, // Use the MIRROR_COLOR constant (golden)
 						roughness: 0.05,
 						metalness: 0.98,
 						reflectivity: 1.0,
 						clearcoat: 1.0,
 						clearcoatRoughness: 0.05,
-						emissive: 0x404040, // Add slight emissive glow
+						emissive: 0x886600, // Add slight golden emissive glow
 						emissiveIntensity: 0.2,
 						polygonOffset: true,
 						polygonOffsetFactor: -1
