@@ -76,6 +76,9 @@
 	// Tolerance for floating point comparisons
 	const POSITION_TOLERANCE = 0.01;
 
+	// Mirror mode position animation duration (ms)
+	const MIRROR_POSITION_ANIMATION_DURATION = 150;
+
 	const cubelets = [];
 	const moveQueue = [];
 	const pointerStates = new Map();
@@ -1834,9 +1837,6 @@
 			}
 		};
 
-		// Store initial positions for smooth animation in mirror mode
-		const initialPositions = isMirrorMode ? cubeletGroup.map((cubelet) => cubelet.mesh.position.clone()) : null;
-
 		cubeletGroup.forEach((cubelet) => {
 			cubelet.logicalPosition.applyMatrix3(rotationMatrix3);
 			cubelet.logicalPosition.set(
@@ -1875,6 +1875,9 @@
 
 		// In mirror mode, animate position changes smoothly to avoid snapping
 		if (isMirrorMode) {
+			// Store initial positions for smooth animation
+			const initialPositions = cubeletGroup.map((cubelet) => cubelet.mesh.position.clone());
+			
 			// Calculate target positions
 			const targetPositions = cubeletGroup.map((cubelet) => {
 				const posX = getMirrorPosition(cubelet.logicalPosition.x, halfSize, cubeletSize, spacing, isMirrorMode);
@@ -1884,12 +1887,11 @@
 			});
 
 			// Animate from current position to target position
-			const animationDuration = 150; // Short duration for smooth transition
 			const start = performance.now();
 
 			function animatePositions(now) {
 				const elapsed = now - start;
-				const t = Math.min(elapsed / animationDuration, 1);
+				const t = Math.min(elapsed / MIRROR_POSITION_ANIMATION_DURATION, 1);
 				const eased = easeOutCubic(t);
 
 				cubeletGroup.forEach((cubelet, i) => {
