@@ -350,6 +350,50 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
+.cube-size-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cube-size-control label {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.cube-size-select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.cube-size-select:hover {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: var(--accent);
+}
+
+.cube-size-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.3);
+}
+
+.cube-size-select option {
+    background: #0f172a;
+    color: var(--text);
+}
+
 .hotkeys h3 {
     margin: 0 0 0.4rem;
     font-size: 1.05rem;

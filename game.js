@@ -19,6 +19,7 @@
 	const customizeKeysBtn = document.getElementById('customize-keys-btn');
 	const speedSlider = document.getElementById('speed-slider');
 	const speedValueEl = document.getElementById('speed-value');
+	const cubeSizeSelect = document.getElementById('cube-size-select');
 	const keyboardModal = document.getElementById('keyboard-modal');
 	const closeModalBtn = document.getElementById('close-modal-btn');
 	const saveKeysBtn = document.getElementById('save-keys-btn');
@@ -90,7 +91,8 @@
 		gameStartTime: null,
 		gameInProgress: false,
 		lastGameTime: 0,
-		rotationSpeed: 200
+		rotationSpeed: 200,
+		cubeSize: 3  // Add cube size state (2-7)
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -149,6 +151,23 @@
 	const scene = new THREE.Scene();
 	scene.background = null;
 	scene.fog = new THREE.Fog(0x0a0f1e, 15, 30); // Add atmospheric depth
+
+	function changeCubeSize(newSize) {
+		state.cubeSize = newSize;
+		buildCube();
+		resetCube();
+		state.moveHistory.length = 0;
+		state.moveCount = 0;
+		state.gameInProgress = false;
+		state.gameStartTime = null;
+		updateHud();
+		setMessage(`큐브 크기가 ${newSize}x${newSize}로 변경되었습니다. 섞기 버튼을 눌러주세요!`);
+		
+		// Adjust camera distance based on cube size
+		const baseDist = 7.4;
+		cameraDistance = baseDist + (newSize - 3) * 1.2;
+		updateCameraPosition();
+	}
 
 	addEnvironment();
 	buildCube();
@@ -247,9 +266,28 @@
 	}
 
 	function buildCube() {
+		// Clear existing cubelets
+		cubelets.length = 0;
+		
+		// Remove old cube group if it exists
+		if (scene.userData.cubeGroup) {
+			scene.remove(scene.userData.cubeGroup);
+			scene.userData.cubeGroup.traverse((child) => {
+				if (child.geometry) child.geometry.dispose();
+				if (child.material) {
+					if (Array.isArray(child.material)) {
+						child.material.forEach(m => m.dispose());
+					} else {
+						child.material.dispose();
+					}
+				}
+			});
+		}
+		
 		const cubeGroup = new THREE.Group();
 		scene.add(cubeGroup);
 
+		const n = state.cubeSize;  // Grid size (2-7)
 		const cubeletSize = 0.92; // Slightly smaller for visible gaps
 		const spacing = 1.0; // Spacing between cubelets to show black body
 		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 2, 2, 2);
@@ -344,20 +382,26 @@
 			return faceMaterialsCache.get(color);
 		};
 
-		for (let x = -1; x <= 1; x += 1) {
-			for (let y = -1; y <= 1; y += 1) {
-				for (let z = -1; z <= 1; z += 1) {
-					if (x === 0 && y === 0 && z === 0) {
+		// Calculate bounds for the grid
+		const halfSize = (n - 1) / 2;
+		
+		for (let x = -halfSize; x <= halfSize; x += 1) {
+			for (let y = -halfSize; y <= halfSize; y += 1) {
+				for (let z = -halfSize; z <= halfSize; z += 1) {
+					// Skip the center piece for all cube sizes (it's never visible)
+					if (x === 0 && y === 0 && z === 0 && n % 2 === 1) {
 						continue;
 					}
 
+					// Determine which faces should be colored
+					// Only the outer layer faces get colors
 					const materials = [
-						getFaceMaterial(x === 1 ? COLORS.right : COLORS.base),
-						getFaceMaterial(x === -1 ? COLORS.left : COLORS.base),
-						getFaceMaterial(y === 1 ? COLORS.up : COLORS.base),
-						getFaceMaterial(y === -1 ? COLORS.down : COLORS.base),
-						getFaceMaterial(z === 1 ? COLORS.front : COLORS.base),
-						getFaceMaterial(z === -1 ? COLORS.back : COLORS.base)
+						getFaceMaterial(x === halfSize ? COLORS.right : COLORS.base),
+						getFaceMaterial(x === -halfSize ? COLORS.left : COLORS.base),
+						getFaceMaterial(y === halfSize ? COLORS.up : COLORS.base),
+						getFaceMaterial(y === -halfSize ? COLORS.down : COLORS.base),
+						getFaceMaterial(z === halfSize ? COLORS.front : COLORS.base),
+						getFaceMaterial(z === -halfSize ? COLORS.back : COLORS.base)
 					];
 
 					const mesh = new THREE.Mesh(roundedGeometry, materials);
@@ -402,6 +446,8 @@
 
 		scene.userData.cubeGroup = cubeGroup;
 		scene.userData.spacing = spacing;
+		scene.userData.cubeSize = n;
+		scene.userData.halfSize = halfSize;
 	}
 
 	function resetCube() {
@@ -693,6 +739,20 @@
 		speedSlider?.addEventListener('input', (event) => {
 			state.rotationSpeed = parseInt(event.target.value);
 			speedValueEl.textContent = `${state.rotationSpeed}ms`;
+		});
+
+		// Cube size control events
+		cubeSizeSelect?.addEventListener('change', (event) => {
+			if (state.isRotating || moveQueue.length) {
+				setMessage('회전이 끝난 후 큐브 크기를 변경할 수 있습니다.');
+				event.target.value = state.cubeSize; // Reset to current value
+				return;
+			}
+			
+			const newSize = parseInt(event.target.value);
+			if (newSize >= 2 && newSize <= 7) {
+				changeCubeSize(newSize);
+			}
 		});
 
 		// Back view button events
@@ -1417,12 +1477,27 @@
 
 	function normalizeMove(move) {
 		const axis = move.axis;
-		const layer = move.layer;  // Allow -1, 0, and 1
+		const layer = move.layer;  // Allow any layer based on cube size
 		const direction = move.direction === -1 ? -1 : 1;
 		const angle = computeActualAngle(axis, layer, direction);
-		// Standard cube notation: M (x-axis middle), E (y-axis middle), S (z-axis middle)
-		const middleLayerNotation = axis === 'x' ? 'M' : (axis === 'y' ? 'E' : 'S');
-		const notation = move.notation || `${FACE_NOTATION[axis]?.[layer] || middleLayerNotation}${direction === 1 ? '' : "'"}`;
+		const halfSize = scene.userData.halfSize || 1;
+		
+		// Generate notation for the move
+		let notation = move.notation;
+		if (!notation) {
+			// For outer layers, use standard face notation
+			if (layer === halfSize || layer === -halfSize) {
+				notation = FACE_NOTATION[axis]?.[layer > 0 ? 1 : -1];
+			} else if (layer === 0 && state.cubeSize % 2 === 1) {
+				// Middle layer notation for odd-sized cubes
+				const middleLayerNotation = axis === 'x' ? 'M' : (axis === 'y' ? 'E' : 'S');
+				notation = middleLayerNotation;
+			} else {
+				// Inner layers - use a simple notation
+				notation = `${axis.toUpperCase()}${layer}`;
+			}
+			notation += direction === 1 ? '' : "'";
+		}
 		const duration = move.duration ?? state.rotationSpeed;
 
 		return {
@@ -1464,11 +1539,15 @@
 
 	function computeActualAngle(axis, layer, direction) {
 		const base = Math.PI / 2;
-		if (layer === 0) {
-			// Middle layer: use consistent direction mapping
+		const halfSize = scene.userData.halfSize || 1;
+		
+		if (layer === 0 && state.cubeSize % 2 === 1) {
+			// Middle layer (only for odd-sized cubes): use consistent direction mapping
 			return -direction * base;
 		}
-		const viewAlignment = layer === 1 ? 1 : -1;
+		
+		// Determine the view alignment based on whether we're on the positive or negative side
+		const viewAlignment = layer > 0 ? 1 : -1;
 		return -direction * viewAlignment * base;
 	}
 
@@ -1679,19 +1758,19 @@
 	}
 
 	function scrambleCube() {
-		const scrambleLength = 24;
+		const n = state.cubeSize;
+		const halfSize = (n - 1) / 2;
+		const scrambleLength = Math.max(20, n * 8); // More scrambles for larger cubes
 		const moves = [];
-		const options = [
-			{ axis: 'x', layer: 1 },
-			{ axis: 'x', layer: -1 },
-			{ axis: 'x', layer: 0 },
-			{ axis: 'y', layer: 1 },
-			{ axis: 'y', layer: -1 },
-			{ axis: 'y', layer: 0 },
-			{ axis: 'z', layer: 1 },
-			{ axis: 'z', layer: -1 },
-			{ axis: 'z', layer: 0 }
-		];
+		const options = [];
+		
+		// Generate all possible layer options based on cube size
+		const axes = ['x', 'y', 'z'];
+		for (const axis of axes) {
+			for (let layer = -halfSize; layer <= halfSize; layer += 1) {
+				options.push({ axis, layer });
+			}
+		}
 
 		let lastOption = null;
 		for (let i = 0; i < scrambleLength; i += 1) {
