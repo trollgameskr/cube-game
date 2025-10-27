@@ -284,8 +284,8 @@
 		// Normalize position to 0-1 range (0 = smallest layer, 1 = largest layer)
 		const normalized = (pos + halfSize) / (halfSize * 2);
 		
-		// Use specified ratios: 1행/열:14, 2행/열:19, 3행/열:24
-		// Layer sizes: 14, 19, 24 (relative to middle layer 19 as baseline)
+		// Use specified ratios for layer sizes: 14, 19, 24
+		// (relative to middle layer 19 as baseline)
 		// Multipliers: 14/19 ≈ 0.737, 19/19 = 1.0, 24/19 ≈ 1.263
 		const MIN_RATIO = 14 / 19;  // ≈ 0.737
 		const MAX_RATIO = 24 / 19;  // ≈ 1.263
@@ -545,6 +545,8 @@
 						pickingHelper,
 						logicalPosition: new THREE.Vector3(x, y, z),
 						initialLogicalPosition: new THREE.Vector3(x, y, z),
+						// Store initial physical position for proper reset (especially in mirror mode)
+						// Note: This is recalculated when cube is rebuilt (e.g., when switching types)
 						initialPhysicalPosition: new THREE.Vector3(posX, posY, posZ),
 						orientation: {
 							x: new THREE.Vector3(1, 0, 0),
@@ -570,8 +572,10 @@
 		if (isMirrorMode) {
 			cubeGroup.rotation.set(MIRROR_TILT_X, MIRROR_TILT_Y, MIRROR_TILT_Z); // Tilted axes for visual appeal
 			
-			// Since we're positioning pieces based on their actual sizes (touching each other),
-			// the cube is already centered around the origin. No additional offset needed.
+			// Since getMirrorPosition calculates cumulative positions from center (0)
+			// with pieces touching each other, the cube should be naturally centered.
+			// For a 3x3: positions at -1, 0, +1 with sizes 0.737, 1.0, 1.263
+			// result in symmetric positioning around the origin.
 		}
 
 		scene.userData.cubeGroup = cubeGroup;
