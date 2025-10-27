@@ -1861,11 +1861,16 @@
 				Math.round(cubelet.orientation.z.z)
 			);
 
-			// For mirror mode, use calculated positions; for normal mode, use uniform spacing
-			const posX = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.x, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.x * spacing;
-			const posY = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.y, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.y * spacing;
-			const posZ = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.z, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.z * spacing;
-			cubelet.mesh.position.set(posX, posY, posZ);
+			// In mirror mode, pieces should NOT move to different physical positions after rotation
+			// They should rotate in place, maintaining their current physical position
+			// Only in normal mode should we recalculate physical positions based on logical positions
+			if (!isMirrorMode) {
+				const posX = cubelet.logicalPosition.x * spacing;
+				const posY = cubelet.logicalPosition.y * spacing;
+				const posZ = cubelet.logicalPosition.z * spacing;
+				cubelet.mesh.position.set(posX, posY, posZ);
+			}
+			// In mirror mode: position stays as-is (pieces rotate in place)
 
 			const basisMatrix = new THREE.Matrix4().makeBasis(
 				cubelet.orientation.x,
