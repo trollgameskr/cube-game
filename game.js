@@ -127,8 +127,6 @@
 	};
 
 	const cameraLimits = {
-		minPhi: 0.2,
-		maxPhi: Math.PI - 0.2,
 		minDistance: 3.5,
 		maxDistance: 24
 	};
@@ -261,21 +259,6 @@
 		const pointLight2 = new THREE.PointLight(0x38bdf8, 0.4, 15);
 		pointLight2.position.set(-5, -5, 5);
 		scene.add(pointLight2);
-
-		// Add a subtle ground plane for reflection
-		const groundGeometry = new THREE.PlaneGeometry(20, 20);
-		const groundMaterial = new THREE.MeshStandardMaterial({
-			color: 0x0f172a,
-			roughness: 0.8,
-			metalness: 0.2,
-			opacity: 0.3,
-			transparent: true
-		});
-		const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-		ground.rotation.x = -Math.PI / 2;
-		ground.position.y = -2.5;
-		ground.receiveShadow = true;
-		scene.add(ground);
 	}
 
 	// Helper function: Get size multiplier for mirror cube pieces based on layer position
@@ -522,7 +505,6 @@
 					];
 
 					const mesh = new THREE.Mesh(pieceGeometry, materials);
-					mesh.castShadow = true;
 					mesh.receiveShadow = true;
 					
 					// For mirror mode, use calculated positions; for normal mode, use uniform spacing
@@ -1384,11 +1366,7 @@
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
 		orbitState.theta = normalizeAngle(orbitState.startTheta - deltaX);
-		orbitState.phi = THREE.MathUtils.clamp(
-			orbitState.startPhi - deltaY,
-			cameraLimits.minPhi,
-			cameraLimits.maxPhi
-		);
+		orbitState.phi = orbitState.startPhi - deltaY;
 
 		updateCameraPosition();
 	}
