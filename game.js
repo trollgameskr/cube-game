@@ -1376,15 +1376,15 @@
 		// Start with the initial quaternion from drag start
 		const newQuat = orbitState.startQuaternion.clone();
 		
-		// Apply horizontal rotation around world Y-axis
+		// Apply horizontal rotation around world Y-axis first
 		const yAxisQuat = new THREE.Quaternion();
 		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
 		newQuat.premultiply(yAxisQuat);
 		
-		// Get the camera's right vector from current quaternion for vertical rotation
-		// Apply vertical rotation around the right axis
+		// Get the camera's right vector from the updated quaternion (after horizontal rotation)
+		// This ensures vertical rotation is relative to the new horizontal orientation
 		const rightAxis = new THREE.Vector3(1, 0, 0);
-		rightAxis.applyQuaternion(orbitState.startQuaternion);
+		rightAxis.applyQuaternion(newQuat);
 		const xAxisQuat = new THREE.Quaternion();
 		xAxisQuat.setFromAxisAngle(rightAxis, -deltaY);
 		newQuat.premultiply(xAxisQuat);
