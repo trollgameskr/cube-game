@@ -312,13 +312,18 @@
 			// Normalize position to 0-1 range
 			const normalized = (pos + halfSize) / (halfSize * 2);
 			
-			// Use exponential scaling for more dramatic size differences
-			// Thin pieces: 0.6x, Medium: 1.0x, Thick: 1.4x
-			return 0.6 + (normalized * 0.8);
+			// Use linear scaling for size differences
+			// Thin pieces: MIN_MIRROR_SCALE, Thick: MIN_MIRROR_SCALE + MIRROR_SCALE_RANGE
+			return MIN_MIRROR_SCALE + (normalized * MIRROR_SCALE_RANGE);
 		};
 		
-		// Mirror cube uses metallic silver color
-		const MIRROR_COLOR = 0xC0C0C0; // Silver chrome
+		// Mirror cube configuration
+		const MIRROR_COLOR = 0xE8E8E8; // Bright metallic silver
+		const MIN_MIRROR_SCALE = 0.6; // Thinnest piece scale
+		const MIRROR_SCALE_RANGE = 0.8; // Range from thinnest to thickest (0.6 to 1.4)
+		const MIRROR_TILT_X = 0.15; // X-axis rotation for tilted aesthetic
+		const MIRROR_TILT_Y = 0.25; // Y-axis rotation for tilted aesthetic
+		const MIRROR_TILT_Z = 0.1;  // Z-axis rotation for tilted aesthetic
 		
 		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 2, 2, 2);
 		
@@ -525,7 +530,7 @@
 
 		// Add a slight rotation to the cube group for mirror mode aesthetic
 		if (isMirrorMode) {
-			cubeGroup.rotation.set(0.15, 0.25, 0.1); // Tilted axes for visual appeal
+			cubeGroup.rotation.set(MIRROR_TILT_X, MIRROR_TILT_Y, MIRROR_TILT_Z); // Tilted axes for visual appeal
 		}
 
 		scene.userData.cubeGroup = cubeGroup;
