@@ -25,6 +25,7 @@
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
 	const backViewBtn = document.getElementById('back-view-btn');
+	const gameTimerEl = document.getElementById('game-timer');
 
 	// Guide modal elements
 	const guideModal = document.getElementById('guide-modal');
@@ -1907,6 +1908,34 @@
 	function animate() {
 		requestAnimationFrame(animate);
 		renderer.render(scene, camera);
+		updateGameTimer();
+	}
+
+	function formatLiveTime(timeInMilliseconds) {
+		const totalSeconds = Math.floor(timeInMilliseconds / 1000);
+		const mins = Math.floor(totalSeconds / 60);
+		const secs = totalSeconds % 60;
+		const cs = Math.floor((timeInMilliseconds % 1000) / 10); // centiseconds
+		
+		// If under 60 seconds, show only seconds
+		if (totalSeconds < 60) {
+			return `${secs.toString().padStart(2, '0')}:${cs.toString().padStart(2, '0')}`;
+		}
+		
+		// Otherwise show minutes:seconds:centiseconds
+		return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${cs.toString().padStart(2, '0')}`;
+	}
+
+	function updateGameTimer() {
+		if (!gameTimerEl) return;
+		
+		if (state.gameInProgress && state.gameStartTime) {
+			const elapsedTime = Date.now() - state.gameStartTime;
+			gameTimerEl.textContent = formatLiveTime(elapsedTime);
+			gameTimerEl.style.display = 'block';
+		} else {
+			gameTimerEl.style.display = 'none';
+		}
 	}
 
 	function easeOutCubic(t) {
