@@ -743,7 +743,6 @@ body.focus-mode .back-view-btn {
     body.focus-mode .cube-stage {
         width: 90vw;
         height: auto;
-        max-width: 90vw;
         aspect-ratio: 1;
         margin: 0 auto;
     }
