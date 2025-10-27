@@ -505,7 +505,7 @@
 					];
 
 					const mesh = new THREE.Mesh(pieceGeometry, materials);
-					mesh.receiveShadow = true;
+					mesh.receiveShadow = false;
 					
 					// For mirror mode, use calculated positions; for normal mode, use uniform spacing
 					const posX = isMirrorMode ? getMirrorPosition(x, halfSize, cubeletSize, spacing, isMirrorMode) : x * spacing;
