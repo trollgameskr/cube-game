@@ -76,9 +76,6 @@
 	// Tolerance for floating point comparisons
 	const POSITION_TOLERANCE = 0.01;
 
-	// Mirror mode position animation duration (ms)
-	const MIRROR_POSITION_ANIMATION_DURATION = 150;
-
 	const cubelets = [];
 	const moveQueue = [];
 	const pointerStates = new Map();
@@ -1742,16 +1739,15 @@
 
 		state.isRotating = true;
 		animateLayerRotation(layerCubelets, axisVector, move.angle, move.duration, () => {
-			finalizeLayer(layerCubelets, rotationMatrix3, () => {
-				if (move.record) {
-					recordMove(move);
-				}
-				move.onComplete?.(move);
-				state.isRotating = false;
-				if (moveQueue.length) {
-					processMoveQueue();
-				}
-			});
+			finalizeLayer(layerCubelets, rotationMatrix3);
+			if (move.record) {
+				recordMove(move);
+			}
+			move.onComplete?.(move);
+			state.isRotating = false;
+			if (moveQueue.length) {
+				processMoveQueue();
+			}
 		});
 	}
 
@@ -1819,7 +1815,7 @@
 		requestAnimationFrame(step);
 	}
 
-	function finalizeLayer(cubeletGroup, rotationMatrix3, onComplete) {
+	function finalizeLayer(cubeletGroup, rotationMatrix3) {
 		const spacing = scene.userData.spacing;
 		const cubeletSize = scene.userData.cubeletSize || 0.92;
 		const halfSize = scene.userData.halfSize || 1;
@@ -1865,6 +1861,12 @@
 				Math.round(cubelet.orientation.z.z)
 			);
 
+			// For mirror mode, use calculated positions; for normal mode, use uniform spacing
+			const posX = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.x, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.x * spacing;
+			const posY = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.y, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.y * spacing;
+			const posZ = isMirrorMode ? getMirrorPosition(cubelet.logicalPosition.z, halfSize, cubeletSize, spacing, isMirrorMode) : cubelet.logicalPosition.z * spacing;
+			cubelet.mesh.position.set(posX, posY, posZ);
+
 			const basisMatrix = new THREE.Matrix4().makeBasis(
 				cubelet.orientation.x,
 				cubelet.orientation.y,
@@ -1872,54 +1874,6 @@
 			);
 			cubelet.mesh.quaternion.setFromRotationMatrix(basisMatrix);
 		});
-
-		// In mirror mode, animate position changes smoothly to avoid snapping
-		if (isMirrorMode) {
-			// Store initial positions for smooth animation
-			const initialPositions = cubeletGroup.map((cubelet) => cubelet.mesh.position.clone());
-			
-			// Calculate target positions
-			const targetPositions = cubeletGroup.map((cubelet) => {
-				const posX = getMirrorPosition(cubelet.logicalPosition.x, halfSize, cubeletSize, spacing, isMirrorMode);
-				const posY = getMirrorPosition(cubelet.logicalPosition.y, halfSize, cubeletSize, spacing, isMirrorMode);
-				const posZ = getMirrorPosition(cubelet.logicalPosition.z, halfSize, cubeletSize, spacing, isMirrorMode);
-				return new THREE.Vector3(posX, posY, posZ);
-			});
-
-			// Animate from current position to target position
-			const start = performance.now();
-
-			function animatePositions(now) {
-				const elapsed = now - start;
-				const t = Math.min(elapsed / MIRROR_POSITION_ANIMATION_DURATION, 1);
-				const eased = easeOutCubic(t);
-
-				cubeletGroup.forEach((cubelet, i) => {
-					cubelet.mesh.position.lerpVectors(initialPositions[i], targetPositions[i], eased);
-				});
-
-				if (t < 1) {
-					requestAnimationFrame(animatePositions);
-				} else {
-					// Ensure final positions are exact
-					cubeletGroup.forEach((cubelet, i) => {
-						cubelet.mesh.position.copy(targetPositions[i]);
-					});
-					if (onComplete) onComplete();
-				}
-			}
-
-			requestAnimationFrame(animatePositions);
-		} else {
-			// Normal mode: set positions directly (no animation needed)
-			cubeletGroup.forEach((cubelet) => {
-				const posX = cubelet.logicalPosition.x * spacing;
-				const posY = cubelet.logicalPosition.y * spacing;
-				const posZ = cubelet.logicalPosition.z * spacing;
-				cubelet.mesh.position.set(posX, posY, posZ);
-			});
-			if (onComplete) onComplete();
-		}
 	}
 
 	function recordMove(move) {
