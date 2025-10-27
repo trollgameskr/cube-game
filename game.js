@@ -20,12 +20,14 @@
 	const speedSlider = document.getElementById('speed-slider');
 	const speedValueEl = document.getElementById('speed-value');
 	const cubeSizeSelect = document.getElementById('cube-size-select');
+	const mirrorCubeToggle = document.getElementById('mirror-cube-toggle');
 	const keyboardModal = document.getElementById('keyboard-modal');
 	const closeModalBtn = document.getElementById('close-modal-btn');
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
 	const backViewBtn = document.getElementById('back-view-btn');
 	const gameTimerEl = document.getElementById('game-timer');
+
 
 	// Guide modal elements
 	const guideModal = document.getElementById('guide-modal');
@@ -96,7 +98,8 @@
 		gameInProgress: false,
 		lastGameTime: 0,
 		rotationSpeed: 200,
-		cubeSize: 3  // Add cube size state (2-7)
+		cubeSize: 3,  // Add cube size state (2-7)
+		isMirrorMode: false  // Mirror cube mode
 	};
 
 	// Keyboard shortcut settings - customizable
@@ -302,64 +305,71 @@
 		const spacing = 1.0; // Spacing between cubelets to show black body
 		const geometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 2, 2, 2);
 		
-		// Add rounded edges to the geometry
-		const roundedGeometry = new THREE.BoxGeometry(cubeletSize, cubeletSize, cubeletSize, 4, 4, 4);
-		
-		// Apply edge rounding by modifying vertex positions
-		const positionAttr = roundedGeometry.attributes.position;
-		const vertex = new THREE.Vector3();
-		const edgeRadius = 0.08; // Radius for rounded edges
-		
-		for (let i = 0; i < positionAttr.count; i++) {
-			vertex.fromBufferAttribute(positionAttr, i);
+		// Helper function to create rounded geometry
+		const createRoundedGeometry = (sizeX, sizeY, sizeZ) => {
+			const geometry = new THREE.BoxGeometry(sizeX, sizeY, sizeZ, 4, 4, 4);
+			const positionAttr = geometry.attributes.position;
+			const vertex = new THREE.Vector3();
+			const edgeRadius = 0.08; // Radius for rounded edges
 			
-			// Calculate distance from center for each axis
-			const dx = Math.abs(vertex.x) - (cubeletSize / 2 - edgeRadius);
-			const dy = Math.abs(vertex.y) - (cubeletSize / 2 - edgeRadius);
-			const dz = Math.abs(vertex.z) - (cubeletSize / 2 - edgeRadius);
-			
-			// Round the corners and edges
-			if (dx > 0 && dy > 0 && dz > 0) {
-				// Corner rounding
-				const cornerDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-				if (cornerDist > 0) {
-					const factor = edgeRadius / cornerDist;
-					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
-					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
-					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
+			for (let i = 0; i < positionAttr.count; i++) {
+				vertex.fromBufferAttribute(positionAttr, i);
+				
+				// Calculate distance from center for each axis
+				const dx = Math.abs(vertex.x) - (sizeX / 2 - edgeRadius);
+				const dy = Math.abs(vertex.y) - (sizeY / 2 - edgeRadius);
+				const dz = Math.abs(vertex.z) - (sizeZ / 2 - edgeRadius);
+				
+				// Round the corners and edges
+				if (dx > 0 && dy > 0 && dz > 0) {
+					// Corner rounding
+					const cornerDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+					if (cornerDist > 0) {
+						const factor = edgeRadius / cornerDist;
+						vertex.x = Math.sign(vertex.x) * (sizeX / 2 - edgeRadius + dx * factor);
+						vertex.y = Math.sign(vertex.y) * (sizeY / 2 - edgeRadius + dy * factor);
+						vertex.z = Math.sign(vertex.z) * (sizeZ / 2 - edgeRadius + dz * factor);
+					}
+				} else if (dx > 0 && dy > 0) {
+					// Edge rounding XY
+					const edgeDist = Math.sqrt(dx * dx + dy * dy);
+					if (edgeDist > 0) {
+						const factor = edgeRadius / edgeDist;
+						vertex.x = Math.sign(vertex.x) * (sizeX / 2 - edgeRadius + dx * factor);
+						vertex.y = Math.sign(vertex.y) * (sizeY / 2 - edgeRadius + dy * factor);
+					}
+				} else if (dx > 0 && dz > 0) {
+					// Edge rounding XZ
+					const edgeDist = Math.sqrt(dx * dx + dz * dz);
+					if (edgeDist > 0) {
+						const factor = edgeRadius / edgeDist;
+						vertex.x = Math.sign(vertex.x) * (sizeX / 2 - edgeRadius + dx * factor);
+						vertex.z = Math.sign(vertex.z) * (sizeZ / 2 - edgeRadius + dz * factor);
+					}
+				} else if (dy > 0 && dz > 0) {
+					// Edge rounding YZ
+					const edgeDist = Math.sqrt(dy * dy + dz * dz);
+					if (edgeDist > 0) {
+						const factor = edgeRadius / edgeDist;
+						vertex.y = Math.sign(vertex.y) * (sizeY / 2 - edgeRadius + dy * factor);
+						vertex.z = Math.sign(vertex.z) * (sizeZ / 2 - edgeRadius + dz * factor);
+					}
 				}
-			} else if (dx > 0 && dy > 0) {
-				// Edge rounding XY
-				const edgeDist = Math.sqrt(dx * dx + dy * dy);
-				if (edgeDist > 0) {
-					const factor = edgeRadius / edgeDist;
-					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
-					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
-				}
-			} else if (dx > 0 && dz > 0) {
-				// Edge rounding XZ
-				const edgeDist = Math.sqrt(dx * dx + dz * dz);
-				if (edgeDist > 0) {
-					const factor = edgeRadius / edgeDist;
-					vertex.x = Math.sign(vertex.x) * (cubeletSize / 2 - edgeRadius + dx * factor);
-					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
-				}
-			} else if (dy > 0 && dz > 0) {
-				// Edge rounding YZ
-				const edgeDist = Math.sqrt(dy * dy + dz * dz);
-				if (edgeDist > 0) {
-					const factor = edgeRadius / edgeDist;
-					vertex.y = Math.sign(vertex.y) * (cubeletSize / 2 - edgeRadius + dy * factor);
-					vertex.z = Math.sign(vertex.z) * (cubeletSize / 2 - edgeRadius + dz * factor);
-				}
+				
+				positionAttr.setXYZ(i, vertex.x, vertex.y, vertex.z);
 			}
 			
-			positionAttr.setXYZ(i, vertex.x, vertex.y, vertex.z);
-		}
+			geometry.computeVertexNormals();
+			return geometry;
+		};
 		
-		roundedGeometry.computeVertexNormals();
+		// Add rounded edges to the geometry (for normal mode)
+		const roundedGeometry = createRoundedGeometry(cubeletSize, cubeletSize, cubeletSize);
 
 		const faceMaterialsCache = new Map();
+		
+		// Mirror cube color (silver/metallic gray)
+		const MIRROR_COLOR = 0xc0c0c0;
 
 		const getFaceMaterial = (color) => {
 			if (!faceMaterialsCache.has(color)) {
@@ -407,9 +417,38 @@
 						continue;
 					}
 
+					// In mirror mode, vary cubelet size based on position
+					let cubeletGeometry;
+					if (state.isMirrorMode) {
+						// Create size variations based on position
+						// Different sizes for each unique position combination
+						const sizeVariation = 0.25; // Max variation from base size
+						// Avoid division by zero for small cubes
+						const xFactor = halfSize > 0 ? Math.abs(x) / halfSize : 0;
+						const yFactor = halfSize > 0 ? Math.abs(y) / halfSize : 0;
+						const zFactor = halfSize > 0 ? Math.abs(z) / halfSize : 0;
+						
+						const sizeX = cubeletSize + (xFactor * sizeVariation);
+						const sizeY = cubeletSize + (yFactor * sizeVariation);
+						const sizeZ = cubeletSize + (zFactor * sizeVariation);
+						
+						cubeletGeometry = createRoundedGeometry(sizeX, sizeY, sizeZ);
+					} else {
+						cubeletGeometry = roundedGeometry;
+					}
+
 					// Determine which faces should be colored
 					// Only the outer layer faces get colors
-					const materials = [
+					// In mirror mode, use single silver color
+					const isOuterFace = x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize;
+					const materials = state.isMirrorMode ? [
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base)
+					] : [
 						getFaceMaterial(x === halfSize ? COLORS.right : COLORS.base),
 						getFaceMaterial(x === -halfSize ? COLORS.left : COLORS.base),
 						getFaceMaterial(y === halfSize ? COLORS.up : COLORS.base),
@@ -418,7 +457,7 @@
 						getFaceMaterial(z === -halfSize ? COLORS.back : COLORS.base)
 					];
 
-					const mesh = new THREE.Mesh(roundedGeometry, materials);
+					const mesh = new THREE.Mesh(cubeletGeometry, materials);
 					mesh.castShadow = true;
 					mesh.receiveShadow = true;
 					mesh.position.set(x * spacing, y * spacing, z * spacing);
@@ -794,6 +833,27 @@
 			if (newSize >= 2 && newSize <= 7) {
 				changeCubeSize(newSize);
 			}
+		});
+
+		// Mirror cube mode toggle
+		mirrorCubeToggle?.addEventListener('change', (event) => {
+			if (state.isRotating || moveQueue.length) {
+				setMessage('회전이 끝난 후 미러 큐브 모드를 변경할 수 있습니다.');
+				event.target.checked = state.isMirrorMode; // Reset to current value
+				return;
+			}
+			
+			state.isMirrorMode = event.target.checked;
+			buildCube();
+			resetCube();
+			state.moveHistory.length = 0;
+			state.moveCount = 0;
+			state.gameInProgress = false;
+			state.gameStartTime = null;
+			updateHud();
+			
+			const modeText = state.isMirrorMode ? '미러 큐브' : '일반 큐브';
+			setMessage(`${modeText} 모드로 변경되었습니다. 섞기 버튼을 눌러주세요!`);
 		});
 
 		// Back view button events
