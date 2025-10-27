@@ -552,6 +552,10 @@
 	}
 
 	function formatKeyCode(code) {
+		// Handle non-string values (e.g., boolean settings)
+		if (typeof code !== 'string') {
+			return '';
+		}
 		// Convert KeyU to U, KeyT to T, etc.
 		if (code.startsWith('Key')) {
 			return code.substring(3);
@@ -701,7 +705,12 @@
 				...inverseMove,
 				onComplete: () => {
 					updateHud();
-					setMessage('최근 이동을 되돌렸습니다.');
+					// Check if cube is solved after hint/undo
+					if (isCubeSolved()) {
+						handleVictory();
+					} else {
+						setMessage('최근 이동을 되돌렸습니다.');
+					}
 				}
 			});
 		});
