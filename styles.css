@@ -738,6 +738,16 @@ body.focus-mode .back-view-btn {
     }
 }
 
+/* Fix cube positioning in portrait focus mode on mobile */
+@media (max-width: 960px) and (orientation: portrait) {
+    body.focus-mode .cube-stage {
+        width: 90vw;
+        height: auto;
+        aspect-ratio: 1;
+        margin: 0 auto;
+    }
+}
+
 /* Leaderboard Styles */
 .leaderboard-section {
     background: var(--panel);
