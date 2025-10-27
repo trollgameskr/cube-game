@@ -321,7 +321,7 @@
 		};
 		
 		// Mirror cube configuration
-		const MIRROR_COLOR = 0xFFD700; // Shiny golden color (금색)
+		const MIRROR_COLOR = 0xFFE87C; // Much brighter golden color (훨씬 밝은 금색)
 		const MIN_MIRROR_SCALE = 0.6; // Thinnest piece scale (deprecated, using ratios instead)
 		const MIRROR_SCALE_RANGE = 0.8; // Range from thinnest to thickest (deprecated, using ratios instead)
 		const MIRROR_TILT_X = 0.15; // X-axis rotation for tilted aesthetic
@@ -401,16 +401,16 @@
 				let material;
 				
 				if (isMirror) {
-					// Mirror cube: all pieces are metallic gold with enhanced brightness
+					// Mirror cube: all pieces are metallic gold with much enhanced brightness
 					material = new THREE.MeshPhysicalMaterial({
 						color: color, // Use the MIRROR_COLOR constant (golden)
-						roughness: 0.05,
-						metalness: 0.98,
+						roughness: 0.02, // Even smoother for better reflection
+						metalness: 1.0, // Maximum metalness
 						reflectivity: 1.0,
 						clearcoat: 1.0,
-						clearcoatRoughness: 0.05,
-						emissive: 0x886600, // Add slight golden emissive glow
-						emissiveIntensity: 0.2,
+						clearcoatRoughness: 0.02, // Smoother clearcoat
+						emissive: 0xFFD700, // Bright golden emissive glow
+						emissiveIntensity: 0.6, // Much higher emissive intensity for brightness
 						polygonOffset: true,
 						polygonOffsetFactor: -1
 					});
@@ -534,6 +534,43 @@
 		// Add a slight rotation to the cube group for mirror mode aesthetic
 		if (isMirrorMode) {
 			cubeGroup.rotation.set(MIRROR_TILT_X, MIRROR_TILT_Y, MIRROR_TILT_Z); // Tilted axes for visual appeal
+			
+			// Calculate weighted center offset for mirror cube
+			// Since pieces have different sizes based on position (14:19:24 ratio),
+			// the geometric center shifts from the origin. We need to compensate.
+			let totalWeight = 0;
+			let weightedCenterX = 0;
+			let weightedCenterY = 0;
+			let weightedCenterZ = 0;
+			
+			cubelets.forEach((cubelet) => {
+				const x = cubelet.logicalPosition.x;
+				const y = cubelet.logicalPosition.y;
+				const z = cubelet.logicalPosition.z;
+				
+				// Weight is proportional to the volume of the piece
+				const sizeX = getMirrorSizeMultiplier(x, halfSize);
+				const sizeY = getMirrorSizeMultiplier(y, halfSize);
+				const sizeZ = getMirrorSizeMultiplier(z, halfSize);
+				const weight = sizeX * sizeY * sizeZ;
+				
+				totalWeight += weight;
+				weightedCenterX += x * spacing * weight;
+				weightedCenterY += y * spacing * weight;
+				weightedCenterZ += z * spacing * weight;
+			});
+			
+			// Calculate the weighted center
+			const centerOffsetX = weightedCenterX / totalWeight;
+			const centerOffsetY = weightedCenterY / totalWeight;
+			const centerOffsetZ = weightedCenterZ / totalWeight;
+			
+			// Adjust each piece position to center the cube at origin
+			cubelets.forEach((cubelet) => {
+				cubelet.mesh.position.x -= centerOffsetX;
+				cubelet.mesh.position.y -= centerOffsetY;
+				cubelet.mesh.position.z -= centerOffsetZ;
+			});
 		}
 
 		scene.userData.cubeGroup = cubeGroup;
