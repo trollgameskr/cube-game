@@ -788,6 +788,9 @@
 							material.side = THREE.FrontSide;
 							material.needsUpdate = true;
 						});
+						
+						// Clean up reference to prevent memory leak
+						delete cubelet.originalMaterials;
 					}
 				}
 			} else {
@@ -820,6 +823,9 @@
 						cubelet.mesh.material.visible = true;
 						cubelet.mesh.material.side = THREE.FrontSide;
 						cubelet.mesh.material.needsUpdate = true;
+						
+						// Clean up reference to prevent memory leak
+						delete cubelet.originalMaterial;
 					}
 				}
 			}
