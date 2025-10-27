@@ -128,7 +128,9 @@
 
 	const cameraLimits = {
 		minDistance: 3.5,
-		maxDistance: 24
+		maxDistance: 24,
+		minPhi: 0.1,  // Prevent gimbal lock at poles (small epsilon from 0)
+		maxPhi: Math.PI - 0.1  // Prevent gimbal lock at poles (small epsilon from π)
 	};
 
 	let cameraDistance = 7.4;
@@ -1366,7 +1368,12 @@
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
 		orbitState.theta = normalizeAngle(orbitState.startTheta - deltaX);
-		orbitState.phi = orbitState.startPhi - deltaY;
+		// Clamp phi to prevent gimbal lock and direction reversal at poles
+		orbitState.phi = THREE.MathUtils.clamp(
+			orbitState.startPhi - deltaY,
+			cameraLimits.minPhi,
+			cameraLimits.maxPhi
+		);
 
 		updateCameraPosition();
 	}
