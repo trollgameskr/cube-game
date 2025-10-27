@@ -1381,8 +1381,9 @@
 		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
 		newQuat.premultiply(yAxisQuat);
 		
-		// Get the camera's right vector from the updated quaternion (after horizontal rotation)
-		// This ensures vertical rotation is relative to the new horizontal orientation
+		// Calculate right axis from the updated quaternion (after horizontal rotation)
+		// This ensures vertical rotation is relative to the camera's new horizontal orientation,
+		// providing more natural diagonal drag behavior
 		const rightAxis = new THREE.Vector3(1, 0, 0);
 		rightAxis.applyQuaternion(newQuat);
 		const xAxisQuat = new THREE.Quaternion();
