@@ -71,6 +71,9 @@
 		back: 0x3388ff  // Brighter blue
 	};
 
+	// Tolerance for floating point comparisons
+	const POSITION_TOLERANCE = 0.01;
+
 	const cubelets = [];
 	const moveQueue = [];
 	const pointerStates = new Map();
@@ -1536,10 +1539,9 @@
 		const move = moveQueue.shift();
 		// For even-sized cubes, positions can be fractional (e.g., 0.5, 1.5)
 		// We need to compare with a small tolerance instead of using Math.round()
-		const tolerance = 0.01;
 		const layerCubelets = cubelets.filter((cubelet) => {
 			const pos = cubelet.logicalPosition[move.axis];
-			return Math.abs(pos - move.layer) < tolerance;
+			return Math.abs(pos - move.layer) < POSITION_TOLERANCE;
 		});
 		const axisVector = AXIS_VECTORS[move.axis].clone();
 		const rotationMatrix4 = tmpMatrix4.makeRotationAxis(axisVector, move.angle);
