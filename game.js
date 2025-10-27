@@ -25,6 +25,7 @@
 	const saveKeysBtn = document.getElementById('save-keys-btn');
 	const resetKeysBtn = document.getElementById('reset-keys-btn');
 	const backViewBtn = document.getElementById('back-view-btn');
+	const gameTimerEl = document.getElementById('game-timer');
 
 	// Guide modal elements
 	const guideModal = document.getElementById('guide-modal');
@@ -107,7 +108,8 @@
 		F: 'KeyF',
 		B: 'KeyB',
 		toggleTransparency: 'KeyT',
-		cameraRelativeMode: true  // true = camera-relative, false = fixed-axis
+		cameraRelativeMode: true,  // true = camera-relative, false = fixed-axis
+		autoScramble: true  // true = auto-scramble on start, false = start solved
 	};
 
 	const keyboardSettings = loadKeyboardSettings();
@@ -213,9 +215,14 @@
 
 	// Auto-scramble on game initialization to prevent cheating
 	// Delay allows the 3D scene to fully render before scrambling begins
+	// Can be disabled in settings for easier testing
 	const AUTO_SCRAMBLE_DELAY_MS = 500;
 	setTimeout(() => {
-		scrambleCube();
+		if (keyboardSettings.autoScramble) {
+			scrambleCube();
+		} else {
+			setMessage('자동 섞기가 비활성화되어 있습니다. 섞기 버튼으로 게임을 시작하세요!');
+		}
 	}, AUTO_SCRAMBLE_DELAY_MS);
 
 	function addEnvironment() {
@@ -504,7 +511,7 @@
 		// Populate current settings
 		Object.keys(keyboardSettings).forEach((key) => {
 			// Skip non-key settings
-			if (key === 'cameraRelativeMode') return;
+			if (key === 'cameraRelativeMode' || key === 'autoScramble') return;
 			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
@@ -520,6 +527,12 @@
 		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
 		if (cameraRelativeCheckbox) {
 			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
+
+		// Set auto-scramble mode checkbox
+		const autoScrambleCheckbox = document.getElementById('auto-scramble-mode');
+		if (autoScrambleCheckbox) {
+			autoScrambleCheckbox.checked = keyboardSettings.autoScramble;
 		}
 
 		keyboardModal.style.display = 'flex';
@@ -540,6 +553,10 @@
 	}
 
 	function formatKeyCode(code) {
+		// Handle non-string values (e.g., boolean settings)
+		if (typeof code !== 'string') {
+			return '';
+		}
 		// Convert KeyU to U, KeyT to T, etc.
 		if (code.startsWith('Key')) {
 			return code.substring(3);
@@ -608,7 +625,7 @@
 	function refreshModalDisplay() {
 		Object.keys(keyboardSettings).forEach((key) => {
 			// Skip non-key settings
-			if (key === 'cameraRelativeMode') return;
+			if (key === 'cameraRelativeMode' || key === 'autoScramble') return;
 			
 			const input = document.getElementById(`key-${key}`);
 			const display = document.querySelector(`.key-display[data-key="${key}"]`);
@@ -624,6 +641,12 @@
 		const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
 		if (cameraRelativeCheckbox) {
 			cameraRelativeCheckbox.checked = keyboardSettings.cameraRelativeMode;
+		}
+		
+		// Update auto-scramble mode checkbox
+		const autoScrambleCheckbox = document.getElementById('auto-scramble-mode');
+		if (autoScrambleCheckbox) {
+			autoScrambleCheckbox.checked = keyboardSettings.autoScramble;
 		}
 	}
 
@@ -683,7 +706,12 @@
 				...inverseMove,
 				onComplete: () => {
 					updateHud();
-					setMessage('최근 이동을 되돌렸습니다.');
+					// Check if cube is solved after hint/undo
+					if (isCubeSolved()) {
+						handleVictory();
+					} else {
+						setMessage('최근 이동을 되돌렸습니다.');
+					}
 				}
 			});
 		});
@@ -708,6 +736,12 @@
 			const cameraRelativeCheckbox = document.getElementById('camera-relative-mode');
 			if (cameraRelativeCheckbox) {
 				keyboardSettings.cameraRelativeMode = cameraRelativeCheckbox.checked;
+			}
+			
+			// Save auto-scramble mode checkbox state
+			const autoScrambleCheckbox = document.getElementById('auto-scramble-mode');
+			if (autoScrambleCheckbox) {
+				keyboardSettings.autoScramble = autoScrambleCheckbox.checked;
 			}
 			
 			saveKeyboardSettings();
@@ -1182,6 +1216,18 @@
 		orbitState.startTheta = orbitState.theta;
 		orbitState.startPhi = orbitState.phi;
 		orbitState.startPos = new THREE.Vector2(clientX, clientY);
+		
+		// Capture camera orientation at drag start for consistent rotation interpretation
+		// Calculate camera's right and up vectors relative to the view direction
+		const viewDir = new THREE.Vector3();
+		camera.getWorldDirection(viewDir);
+		const cameraRight = new THREE.Vector3();
+		cameraRight.crossVectors(camera.up, viewDir).normalize();
+		const cameraUp = camera.up.clone().normalize();
+		
+		// Store these for use during drag
+		orbitState.startCameraRight = cameraRight;
+		orbitState.startCameraUp = cameraUp;
 	}
 
 	function updateOrbit(clientX, clientY) {
@@ -1738,8 +1784,9 @@
 
 	function handleVictory() {
 		state.gameInProgress = false;
-		const gameTime = Math.floor((Date.now() - state.gameStartTime) / 1000);
-		state.lastGameTime = gameTime;
+		// Handle case where game timer wasn't started (edge case)
+		const gameTimeMs = state.gameStartTime ? (Date.now() - state.gameStartTime) : 0;
+		state.lastGameTime = gameTimeMs;
 		
 		setMessage('축하합니다! 큐브를 완성했습니다!', { celebrate: true });
 		
@@ -1748,7 +1795,7 @@
 		
 		// Open victory modal after a short delay
 		setTimeout(() => {
-			openVictoryModal(state.moveCount, gameTime);
+			openVictoryModal(state.moveCount, gameTimeMs);
 		}, 800);
 	}
 
@@ -1861,6 +1908,34 @@
 	function animate() {
 		requestAnimationFrame(animate);
 		renderer.render(scene, camera);
+		updateGameTimer();
+	}
+
+	function formatLiveTime(timeInMilliseconds) {
+		const totalSeconds = Math.floor(timeInMilliseconds / 1000);
+		const mins = Math.floor(totalSeconds / 60);
+		const secs = totalSeconds % 60;
+		const cs = Math.floor((timeInMilliseconds % 1000) / 10); // centiseconds
+		
+		// If under 60 seconds, show only seconds
+		if (totalSeconds < 60) {
+			return `${secs.toString().padStart(2, '0')}:${cs.toString().padStart(2, '0')}`;
+		}
+		
+		// Otherwise show minutes:seconds:centiseconds
+		return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${cs.toString().padStart(2, '0')}`;
+	}
+
+	function updateGameTimer() {
+		if (!gameTimerEl) return;
+		
+		if (state.gameInProgress && state.gameStartTime) {
+			const elapsedTime = Date.now() - state.gameStartTime;
+			gameTimerEl.textContent = formatLiveTime(elapsedTime);
+			gameTimerEl.style.display = 'block';
+		} else {
+			gameTimerEl.style.display = 'none';
+		}
 	}
 
 	function easeOutCubic(t) {
@@ -2002,11 +2077,11 @@
 	function showDemoLeaderboard() {
 		leaderboardList.innerHTML = '';
 		const demoData = [
-			{ nickname: '큐브마스터', moves: 45, time: 123 },
-			{ nickname: '퍼즐왕', moves: 52, time: 156 },
-			{ nickname: '스피드큐버', moves: 58, time: 98 },
-			{ nickname: 'CubeNinja', moves: 61, time: 145 },
-			{ nickname: '3D전문가', moves: 67, time: 178 }
+			{ nickname: '큐브마스터', moves: 45, time: 123000 },
+			{ nickname: '퍼즐왕', moves: 52, time: 156000 },
+			{ nickname: '스피드큐버', moves: 58, time: 98000 },
+			{ nickname: 'CubeNinja', moves: 61, time: 145000 },
+			{ nickname: '3D전문가', moves: 67, time: 178000 }
 		];
 		
 		demoData.forEach((data, index) => {
@@ -2015,7 +2090,7 @@
 		});
 	}
 
-	function createLeaderboardEntry(rank, nickname, moves, timeInSeconds) {
+	function createLeaderboardEntry(rank, nickname, moves, timeInMilliseconds) {
 		const entry = document.createElement('div');
 		entry.className = `leaderboard-entry rank-${rank}`;
 		
@@ -2033,7 +2108,7 @@
 		
 		const timeEl = document.createElement('div');
 		timeEl.className = 'leaderboard-time';
-		timeEl.textContent = formatTime(timeInSeconds);
+		timeEl.textContent = formatTime(timeInMilliseconds);
 		
 		entry.appendChild(rankEl);
 		entry.appendChild(nameEl);
@@ -2043,15 +2118,17 @@
 		return entry;
 	}
 
-	function formatTime(seconds) {
-		const mins = Math.floor(seconds / 60);
-		const secs = seconds % 60;
-		return `${mins}:${secs.toString().padStart(2, '0')}`;
+	function formatTime(timeInMilliseconds) {
+		const totalSeconds = Math.floor(timeInMilliseconds / 1000);
+		const mins = Math.floor(totalSeconds / 60);
+		const secs = totalSeconds % 60;
+		const ms = Math.floor((timeInMilliseconds % 1000) / 10); // Get centiseconds (0-99)
+		return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
 	}
 
-	function openVictoryModal(moves, timeInSeconds) {
+	function openVictoryModal(moves, timeInMilliseconds) {
 		victoryMoveCount.textContent = moves;
-		victoryTime.textContent = formatTime(timeInSeconds);
+		victoryTime.textContent = formatTime(timeInMilliseconds);
 		
 		// Load saved nickname if available
 		const savedNickname = localStorage.getItem('cubeGameNickname') || '';
