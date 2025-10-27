@@ -1,7 +1,7 @@
 {
-  "name": "3D 3x3 큐브 게임",
+  "name": "3D 큐브 게임",
   "short_name": "큐브 게임",
-  "description": "3x3 큐브 퍼즐 게임 - 브라우저에서 즐기는 3D 퍼즐",
+  "description": "2x2부터 7x7까지 다양한 크기의 큐브 퍼즐 게임 - 브라우저에서 즐기는 3D 퍼즐",
   "start_url": "/cube-game/",
   "display": "standalone",
   "background_color": "#0f172a",
