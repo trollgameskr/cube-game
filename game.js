@@ -423,9 +423,10 @@
 						// Create size variations based on position
 						// Different sizes for each unique position combination
 						const sizeVariation = 0.25; // Max variation from base size
-						const xFactor = Math.abs(x) / halfSize;
-						const yFactor = Math.abs(y) / halfSize;
-						const zFactor = Math.abs(z) / halfSize;
+						// Avoid division by zero for small cubes
+						const xFactor = halfSize > 0 ? Math.abs(x) / halfSize : 0;
+						const yFactor = halfSize > 0 ? Math.abs(y) / halfSize : 0;
+						const zFactor = halfSize > 0 ? Math.abs(z) / halfSize : 0;
 						
 						const sizeX = cubeletSize + (xFactor * sizeVariation);
 						const sizeY = cubeletSize + (yFactor * sizeVariation);
@@ -439,13 +440,14 @@
 					// Determine which faces should be colored
 					// Only the outer layer faces get colors
 					// In mirror mode, use single silver color
+					const isOuterFace = x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize;
 					const materials = state.isMirrorMode ? [
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base),
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base),
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base),
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base),
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base),
-						getFaceMaterial(x === halfSize || x === -halfSize || y === halfSize || y === -halfSize || z === halfSize || z === -halfSize ? MIRROR_COLOR : COLORS.base)
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base),
+						getFaceMaterial(isOuterFace ? MIRROR_COLOR : COLORS.base)
 					] : [
 						getFaceMaterial(x === halfSize ? COLORS.right : COLORS.base),
 						getFaceMaterial(x === -halfSize ? COLORS.left : COLORS.base),
