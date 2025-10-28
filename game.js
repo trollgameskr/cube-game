@@ -1427,9 +1427,11 @@
 
 		// Update camera orbit angles
 		// Horizontal drag rotates around Y-axis (theta)
+		// Note: Subtract deltaX because positive X movement should rotate view to the right (decrease theta)
 		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity;
 		
 		// Vertical drag changes the vertical angle (phi)
+		// Note: Add deltaY because positive Y (down) movement should lower the view (increase phi)
 		// Clamp phi to avoid gimbal lock at poles
 		cameraOrbitPhi = THREE.MathUtils.clamp(
 			cameraRotationDragState.startPhi + deltaY * sensitivity,
