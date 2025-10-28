@@ -1369,22 +1369,25 @@
 		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
 		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
 
-		// Simple dual-axis rotation using world axes for both directions
-		// Horizontal drag (deltaX) rotates around world Y-axis (up)
-		// Vertical drag (deltaY) rotates around world X-axis (right)
+		// Determine primary drag direction to prevent unwanted axis coupling
+		// Only rotate around the axis corresponding to the primary drag direction
+		const absDeltaX = Math.abs(deltaX);
+		const absDeltaY = Math.abs(deltaY);
 		
 		// Start with the initial quaternion from drag start
 		const newQuat = orbitState.startQuaternion.clone();
 		
-		// Apply horizontal rotation around world Y-axis
-		const yAxisQuat = new THREE.Quaternion();
-		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
-		newQuat.premultiply(yAxisQuat);
-		
-		// Apply vertical rotation around world X-axis
-		const xAxisQuat = new THREE.Quaternion();
-		xAxisQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -deltaY);
-		newQuat.premultiply(xAxisQuat);
+		if (absDeltaX > absDeltaY) {
+			// Horizontal drag dominates - only rotate around world Y-axis (up)
+			const yAxisQuat = new THREE.Quaternion();
+			yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
+			newQuat.premultiply(yAxisQuat);
+		} else {
+			// Vertical drag dominates - only rotate around world X-axis (right)
+			const xAxisQuat = new THREE.Quaternion();
+			xAxisQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -deltaY);
+			newQuat.premultiply(xAxisQuat);
+		}
 		
 		// Update the orbit state with new quaternion
 		orbitState.quaternion.copy(newQuat);
