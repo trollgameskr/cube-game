@@ -1505,10 +1505,20 @@
 			rotationAxis3D = new THREE.Vector3().crossVectors(normal, dragTangent3D).normalize();
 		}
 
-		// Determine which of the three cube axes (x, y, z) best matches the rotation axis
-		const absX = Math.abs(rotationAxis3D.x);
-		const absY = Math.abs(rotationAxis3D.y);
-		const absZ = Math.abs(rotationAxis3D.z);
+		// Transform rotation axis from world space to cube group's local space
+		// This accounts for any rotation applied to the cube group
+		const cubeGroup = scene.userData.cubeGroup;
+		const rotationAxisLocal = rotationAxis3D.clone();
+		if (cubeGroup) {
+			// Apply inverse of cube group's rotation to get local-space axis
+			const inverseQuaternion = cubeGroup.quaternion.clone().invert();
+			rotationAxisLocal.applyQuaternion(inverseQuaternion);
+		}
+
+		// Determine which of the three cube axes (x, y, z) best matches the rotation axis (in local space)
+		const absX = Math.abs(rotationAxisLocal.x);
+		const absY = Math.abs(rotationAxisLocal.y);
+		const absZ = Math.abs(rotationAxisLocal.z);
 
 		let rotationAxisName;
 		let rotationLayer;
@@ -1538,7 +1548,12 @@
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
-		const rotationAxisVector = AXIS_VECTORS[rotationAxisName];
+		// Transform the local axis to world space for testing
+		const rotationAxisVector = AXIS_VECTORS[rotationAxisName].clone();
+		const cubeGroup = scene.userData.cubeGroup;
+		if (cubeGroup) {
+			rotationAxisVector.applyQuaternion(cubeGroup.quaternion);
+		}
 		const samplePoint = point.clone().add(dragTangent3D.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
 		const screenStart = projectPointToScreen(samplePoint);
@@ -1720,7 +1735,13 @@
 			const pos = cubelet.logicalPosition[move.axis];
 			return Math.abs(pos - move.layer) < POSITION_TOLERANCE;
 		});
+		// Get the local axis vector and transform it to world space
+		// This accounts for any rotation of the cube group
 		const axisVector = AXIS_VECTORS[move.axis].clone();
+		const cubeGroup = scene.userData.cubeGroup;
+		if (cubeGroup) {
+			axisVector.applyQuaternion(cubeGroup.quaternion);
+		}
 		const rotationMatrix4 = tmpMatrix4.makeRotationAxis(axisVector, move.angle);
 		const rotationMatrix3 = tmpMatrix3.setFromMatrix4(rotationMatrix4);
 
