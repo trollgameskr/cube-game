@@ -84,6 +84,9 @@
 	const tmpVec2 = new THREE.Vector2();
 	const tmpVec3 = new THREE.Vector3();
 	const tmpQuat = new THREE.Quaternion();
+	const tmpQuat2 = new THREE.Quaternion();
+	const tmpVec3_2 = new THREE.Vector3();
+	const tmpVec3_3 = new THREE.Vector3();
 	const tmpMatrix4 = new THREE.Matrix4();
 	const tmpMatrix3 = new THREE.Matrix3();
 
@@ -1345,10 +1348,10 @@
 		const verticalAngle = -deltaY * sensitivity; // Negative because screen Y is inverted
 		
 		// Get camera's up and right vectors (screen-based axes)
-		const cameraUp = camera.up.clone().normalize();
-		const cameraDirection = new THREE.Vector3();
-		camera.getWorldDirection(cameraDirection);
-		const cameraRight = new THREE.Vector3().crossVectors(cameraDirection, cameraUp).normalize();
+		// Reuse temporary vectors to avoid allocations
+		const cameraUp = tmpVec3_2.copy(camera.up).normalize();
+		camera.getWorldDirection(tmpVec3_3);
+		const cameraRight = tmpVec3.crossVectors(tmpVec3_3, cameraUp).normalize();
 		
 		// Apply rotations around screen axes using quaternions
 		const cubeGroup = scene.userData.cubeGroup;
@@ -1357,12 +1360,13 @@
 		cubeGroup.quaternion.copy(cubeRotationDragState.startQuaternion);
 		
 		// Apply horizontal rotation around camera's up vector (screen vertical axis)
-		const horizontalQuat = new THREE.Quaternion().setFromAxisAngle(cameraUp, horizontalAngle);
-		cubeGroup.quaternion.premultiply(horizontalQuat);
+		// Reuse temporary quaternions to avoid allocations
+		tmpQuat.setFromAxisAngle(cameraUp, horizontalAngle);
+		cubeGroup.quaternion.premultiply(tmpQuat);
 		
 		// Apply vertical rotation around camera's right vector (screen horizontal axis)
-		const verticalQuat = new THREE.Quaternion().setFromAxisAngle(cameraRight, verticalAngle);
-		cubeGroup.quaternion.premultiply(verticalQuat);
+		tmpQuat2.setFromAxisAngle(cameraRight, verticalAngle);
+		cubeGroup.quaternion.premultiply(tmpQuat2);
 	}
 
 	function handleDragMove() {
