@@ -127,8 +127,11 @@
 	};
 
 	let cameraDistance = 7.4;
+	let cameraOrbitTheta = Math.atan2(7, 5); // Horizontal angle (around Y-axis)
+	let cameraOrbitPhi = Math.acos(4 / Math.sqrt(5*5 + 4*4 + 7*7)); // Vertical angle (from Y-axis)
 	let dragState = null;
 	let cubeRotationDragState = null; // State for cube rotation when dragging on empty space
+	let cameraRotationDragState = null; // State for camera orbit rotation with 2 fingers
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1255,6 +1258,11 @@
 				// Start cube rotation drag on empty space
 				startCubeRotationDrag(event.pointerId, pointer.clientX, pointer.clientY);
 			}
+		} else if (pointerStates.size === 2) {
+			// Two fingers detected: cancel cube rotation and start camera rotation
+			dragState = null;
+			cubeRotationDragState = null;
+			startCameraRotationDrag();
 		}
 	}
 
@@ -1276,6 +1284,10 @@
 		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
 			updateCubeRotation(event.clientX, event.clientY);
 		}
+
+		if (cameraRotationDragState && pointerStates.size === 2) {
+			updateCameraRotation();
+		}
 	}
 
 	function onPointerUp(event) {
@@ -1292,6 +1304,11 @@
 
 		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
 			cubeRotationDragState = null;
+		}
+
+		// If we're down to less than 2 pointers, stop camera rotation
+		if (pointerStates.size < 2) {
+			cameraRotationDragState = null;
 		}
 	}
 
@@ -1367,6 +1384,62 @@
 		// Apply vertical rotation around camera's right vector (screen horizontal axis)
 		tmpQuat2.setFromAxisAngle(cameraRight, verticalAngle);
 		cubeGroup.quaternion.premultiply(tmpQuat2);
+	}
+
+	function startCameraRotationDrag() {
+		// Get the center point of the two active pointers
+		const pointers = Array.from(pointerStates.values());
+		if (pointers.length !== 2) {
+			return;
+		}
+
+		const centerX = (pointers[0].clientX + pointers[1].clientX) / 2;
+		const centerY = (pointers[0].clientY + pointers[1].clientY) / 2;
+
+		cameraRotationDragState = {
+			startCenterX: centerX,
+			startCenterY: centerY,
+			startTheta: cameraOrbitTheta,
+			startPhi: cameraOrbitPhi
+		};
+	}
+
+	function updateCameraRotation() {
+		if (!cameraRotationDragState) {
+			return;
+		}
+
+		// Get current center point of the two active pointers
+		const pointers = Array.from(pointerStates.values());
+		if (pointers.length !== 2) {
+			return;
+		}
+
+		const currentCenterX = (pointers[0].currentX + pointers[1].currentX) / 2;
+		const currentCenterY = (pointers[0].currentY + pointers[1].currentY) / 2;
+
+		// Calculate drag deltas from the center point
+		const deltaX = currentCenterX - cameraRotationDragState.startCenterX;
+		const deltaY = currentCenterY - cameraRotationDragState.startCenterY;
+
+		// Camera rotation sensitivity
+		const sensitivity = 0.005;
+
+		// Update camera orbit angles
+		// Horizontal drag rotates around Y-axis (theta)
+		// Note: Subtract deltaX because positive X movement should rotate view to the right (decrease theta)
+		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity;
+		
+		// Vertical drag changes the vertical angle (phi)
+		// Note: Add deltaY because positive Y (down) movement should lower the view (increase phi)
+		// Clamp phi to avoid gimbal lock at poles
+		cameraOrbitPhi = THREE.MathUtils.clamp(
+			cameraRotationDragState.startPhi + deltaY * sensitivity,
+			0.1,  // Small offset from top (0)
+			Math.PI - 0.1  // Small offset from bottom (PI)
+		);
+
+		updateCameraPosition();
 	}
 
 	function handleDragMove() {
@@ -2009,9 +2082,15 @@
 	}
 
 	function updateCameraPosition() {
-		// Fixed camera position - no rotation
-		const position = new THREE.Vector3(5, 4, 7).normalize().multiplyScalar(cameraDistance);
-		camera.position.copy(cameraTarget).add(position);
+		// Use spherical coordinates for camera orbit
+		// theta = horizontal angle (around Y-axis)
+		// phi = vertical angle (from Y-axis, 0 = top, PI = bottom)
+		// Calculate camera position using spherical coordinates
+		const x = cameraDistance * Math.sin(cameraOrbitPhi) * Math.cos(cameraOrbitTheta);
+		const y = cameraDistance * Math.cos(cameraOrbitPhi);
+		const z = cameraDistance * Math.sin(cameraOrbitPhi) * Math.sin(cameraOrbitTheta);
+		
+		camera.position.set(x, y, z).add(cameraTarget);
 		camera.lookAt(cameraTarget);
 	}
 
