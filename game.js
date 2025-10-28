@@ -1322,8 +1322,10 @@
 		
 		cubeRotationDragState = {
 			pointerId: pointerId,
+			startX: clientX,
 			startY: clientY,
-			startRotationX: scene.userData.cubeGroup.rotation.x
+			startRotationX: scene.userData.cubeGroup.rotation.x,
+			startRotationY: scene.userData.cubeGroup.rotation.y
 		};
 	}
 
@@ -1332,16 +1334,21 @@
 			return;
 		}
 
-		// Calculate vertical drag distance
+		// Calculate horizontal and vertical drag distances
+		const deltaX = clientX - cubeRotationDragState.startX;
 		const deltaY = clientY - cubeRotationDragState.startY;
 		
 		// Rotate cube around horizontal (X) axis based on vertical drag
 		// Negative deltaY because screen Y is inverted
-		const rotationAngle = -deltaY * 0.005;
+		const rotationAngleX = -deltaY * 0.005;
 		
-		// Apply rotation to the entire cube group (add to starting rotation)
+		// Rotate cube around vertical (Y) axis based on horizontal drag
+		const rotationAngleY = deltaX * 0.005;
+		
+		// Apply rotations to the entire cube group (add to starting rotations)
 		const cubeGroup = scene.userData.cubeGroup;
-		cubeGroup.rotation.x = cubeRotationDragState.startRotationX + rotationAngle;
+		cubeGroup.rotation.x = cubeRotationDragState.startRotationX + rotationAngleX;
+		cubeGroup.rotation.y = cubeRotationDragState.startRotationY + rotationAngleY;
 	}
 
 	function handleDragMove() {
