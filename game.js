@@ -1366,35 +1366,65 @@
 			return;
 		}
 
-		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
-		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
-
-		// Quaternion-based rotation: apply incremental rotations around world axes
-		// Horizontal drag (deltaX) rotates around world Y-axis (up)
-		// Vertical drag (deltaY) rotates around camera's initial right axis
+		// Trackball rotation: map screen coordinates to a virtual sphere surface
+		// This approach avoids gimbal lock and provides intuitive 360° rotation
+		const rect = renderer.domElement.getBoundingClientRect();
 		
-		// Start with the initial quaternion from drag start
-		const newQuat = orbitState.startQuaternion.clone();
+		// Get normalized screen coordinates [-1, 1] for both start and current positions
+		const startX = (orbitState.startPos.x - rect.left) / rect.width * 2 - 1;
+		const startY = -((orbitState.startPos.y - rect.top) / rect.height * 2 - 1);
+		const currentX = (clientX - rect.left) / rect.width * 2 - 1;
+		const currentY = -((clientY - rect.top) / rect.height * 2 - 1);
 		
-		// Calculate right axis from the INITIAL quaternion (before any rotation)
-		// This ensures vertical and horizontal rotations are independent
-		const rightAxis = new THREE.Vector3(1, 0, 0);
-		rightAxis.applyQuaternion(orbitState.startQuaternion);
+		// Map 2D screen coordinates to 3D points on a virtual trackball sphere
+		// Points inside the circle map to the sphere surface, points outside map to the edge
+		const trackballRadius = 0.8; // Virtual sphere radius (< 1 for better control)
 		
-		// Apply horizontal rotation around world Y-axis
-		const yAxisQuat = new THREE.Quaternion();
-		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
-		newQuat.premultiply(yAxisQuat);
+		const startVec = mapToTrackball(startX, startY, trackballRadius);
+		const currentVec = mapToTrackball(currentX, currentY, trackballRadius);
 		
-		// Apply vertical rotation around the initial right axis
-		const xAxisQuat = new THREE.Quaternion();
-		xAxisQuat.setFromAxisAngle(rightAxis, -deltaY);
-		newQuat.premultiply(xAxisQuat);
+		// Calculate rotation axis: perpendicular to both vectors (cross product)
+		const rotationAxis = new THREE.Vector3();
+		rotationAxis.crossVectors(startVec, currentVec).normalize();
 		
-		// Update the orbit state with new quaternion
-		orbitState.quaternion.copy(newQuat);
+		// Calculate rotation angle from the angle between the two vectors
+		const angle = Math.acos(Math.min(1.0, startVec.dot(currentVec)));
+		
+		// Only apply rotation if there's significant movement
+		if (rotationAxis.length() > 0.001 && angle > 0.001) {
+			// Create rotation quaternion
+			const deltaQuat = new THREE.Quaternion();
+			deltaQuat.setFromAxisAngle(rotationAxis, angle);
+			
+			// Apply rotation: new quaternion = delta * initial quaternion
+			// This rotates the camera in camera space, which is more intuitive
+			const newQuat = deltaQuat.multiply(orbitState.startQuaternion.clone());
+			
+			// Update the orbit state with new quaternion
+			orbitState.quaternion.copy(newQuat);
+		}
 
 		updateCameraPosition();
+	}
+	
+	/**
+	 * Map 2D screen coordinates to 3D point on virtual trackball sphere
+	 * Uses a hybrid sphere-hyperbola approach for smooth transitions
+	 */
+	function mapToTrackball(screenX, screenY, radius) {
+		const vec = new THREE.Vector3(screenX, screenY, 0);
+		const lengthSquared = screenX * screenX + screenY * screenY;
+		const radiusSquared = radius * radius;
+		
+		if (lengthSquared <= radiusSquared * 0.5) {
+			// Inside sphere: calculate Z coordinate using sphere equation
+			vec.z = Math.sqrt(radiusSquared - lengthSquared);
+		} else {
+			// Outside sphere: use hyperbolic sheet for smooth transition
+			vec.z = (radiusSquared * 0.5) / Math.sqrt(lengthSquared);
+		}
+		
+		return vec.normalize();
 	}
 
 	function startGesture() {
