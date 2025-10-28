@@ -1371,21 +1371,22 @@
 
 		// Quaternion-based rotation: apply incremental rotations around world axes
 		// Horizontal drag (deltaX) rotates around world Y-axis (up)
-		// Vertical drag (deltaY) rotates around camera's current right axis
+		// Vertical drag (deltaY) rotates around camera's initial right axis
 		
 		// Start with the initial quaternion from drag start
 		const newQuat = orbitState.startQuaternion.clone();
 		
-		// Apply horizontal rotation around world Y-axis first
+		// Calculate right axis from the INITIAL quaternion (before any rotation)
+		// This ensures vertical and horizontal rotations are independent
+		const rightAxis = new THREE.Vector3(1, 0, 0);
+		rightAxis.applyQuaternion(orbitState.startQuaternion);
+		
+		// Apply horizontal rotation around world Y-axis
 		const yAxisQuat = new THREE.Quaternion();
 		yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
 		newQuat.premultiply(yAxisQuat);
 		
-		// Calculate right axis from the updated quaternion (after horizontal rotation)
-		// This ensures vertical rotation is relative to the camera's new horizontal orientation,
-		// providing more natural diagonal drag behavior
-		const rightAxis = new THREE.Vector3(1, 0, 0);
-		rightAxis.applyQuaternion(newQuat);
+		// Apply vertical rotation around the initial right axis
 		const xAxisQuat = new THREE.Quaternion();
 		xAxisQuat.setFromAxisAngle(rightAxis, -deltaY);
 		newQuat.premultiply(xAxisQuat);
