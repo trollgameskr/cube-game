@@ -1548,7 +1548,7 @@
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
-		// Transform the local axis to world space for testing
+		// Transform the local axis to world space for testing (reusing cubeGroup from above)
 		const rotationAxisVector = AXIS_VECTORS[rotationAxisName].clone();
 		if (cubeGroup) {
 			rotationAxisVector.applyQuaternion(cubeGroup.quaternion);
