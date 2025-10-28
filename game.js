@@ -1345,7 +1345,7 @@
 		
 		// Calculate rotation angles
 		const horizontalAngle = deltaX * sensitivity;
-		const verticalAngle = -deltaY * sensitivity; // Negative because screen Y is inverted
+		const verticalAngle = deltaY * sensitivity; // Negative because screen Y is inverted
 		
 		// Get camera's up and right vectors (screen-based axes)
 		// Reuse temporary vectors to avoid allocations
