@@ -117,40 +117,15 @@
 	const keyboardSettings = loadKeyboardSettings();
 
 	const cameraTarget = new THREE.Vector3(0, 0, 0);
-	
-	// Initialize quaternion from initial spherical coordinates (theta=π/4, phi=π/4)
-	const initTheta = Math.PI / 4;
-	const initPhi = Math.PI / 4;
-	const initPosition = new THREE.Vector3(
-		Math.sin(initPhi) * Math.sin(initTheta),
-		Math.cos(initPhi),
-		Math.sin(initPhi) * Math.cos(initTheta)
-	).normalize();
-	
-	// Create initial quaternion that represents this camera orientation
-	// We need a quaternion that when applied to (0,0,1) gives us initPosition
-	const initQuat = new THREE.Quaternion();
-	const upVector = new THREE.Vector3(0, 1, 0);
-	const defaultForward = new THREE.Vector3(0, 0, 1);
-	// Set quaternion to rotate from defaultForward to initPosition
-	initQuat.setFromUnitVectors(defaultForward, initPosition);
-	
-	const orbitState = {
-		quaternion: initQuat.clone(),  // Current camera rotation as quaternion
-		pointerId: null,
-		startQuaternion: null,
-		startPos: null
-	};
 
 	const cameraLimits = {
 		minDistance: 3.5,
 		maxDistance: 24
-		// No phi limits - quaternion rotation allows full 360° rotation
 	};
 
 	let cameraDistance = 7.4;
 	let dragState = null;
-	let gestureState = null;
+	let cubeRotationDragState = null; // State for cube rotation when dragging on empty space
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1249,7 +1224,11 @@
 
 	function onPointerDown(event) {
 		const canvas = renderer.domElement;
-		canvas.setPointerCapture(event.pointerId);
+		try {
+			canvas.setPointerCapture(event.pointerId);
+		} catch (e) {
+			// Ignore - may fail for simulated events
+		}
 
 		const pointer = createPointerState(event);
 		pointerStates.set(event.pointerId, pointer);
@@ -1259,7 +1238,7 @@
 		}
 
 		if (pointerStates.size === 1) {
-			// Single pointer: determine whether to rotate cube or orbit camera.
+			// Single pointer: determine whether to rotate cube face or rotate entire cube
 			const intersection = pickCubeFace(pointer.clientX, pointer.clientY);
 			if (intersection && !state.isRotating && !moveQueue.length) {
 				dragState = {
@@ -1270,12 +1249,9 @@
 					hasTriggered: false
 				};
 			} else {
-				startOrbit(event.pointerId, pointer.clientX, pointer.clientY);
+				// Start cube rotation drag on empty space
+				startCubeRotationDrag(event.pointerId, pointer.clientX, pointer.clientY);
 			}
-		} else if (pointerStates.size === 2) {
-			dragState = null;
-			orbitState.pointerId = null;
-			startGesture();
 		}
 	}
 
@@ -1288,42 +1264,31 @@
 		pointer.currentX = event.clientX;
 		pointer.currentY = event.clientY;
 
-		if (gestureState) {
-			updateGesture();
-			return;
-		}
-
 		if (dragState && dragState.pointerId === event.pointerId) {
 			dragState.currentClient.set(event.clientX, event.clientY);
 			handleDragMove();
 			return;
 		}
 
-		if (orbitState.pointerId === event.pointerId) {
-			updateOrbit(event.clientX, event.clientY);
+		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
+			updateCubeRotation(event.clientX, event.clientY);
 		}
 	}
 
 	function onPointerUp(event) {
-		renderer.domElement.releasePointerCapture(event.pointerId);
+		try {
+			renderer.domElement.releasePointerCapture(event.pointerId);
+		} catch (e) {
+			// Ignore - may fail for simulated events
+		}
 		pointerStates.delete(event.pointerId);
 
 		if (dragState && dragState.pointerId === event.pointerId) {
 			dragState = null;
 		}
 
-		if (orbitState.pointerId === event.pointerId) {
-			orbitState.pointerId = null;
-		}
-
-		if (gestureState && gestureState.pointerIds.includes(event.pointerId)) {
-			gestureState = null;
-		}
-
-		if (pointerStates.size === 1 && !gestureState) {
-			const remainingId = pointerStates.keys().next().value;
-			const pointer = pointerStates.get(remainingId);
-			startOrbit(remainingId, pointer.currentX, pointer.currentY);
+		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
+			cubeRotationDragState = null;
 		}
 	}
 
@@ -1339,11 +1304,6 @@
 		updateCameraPosition();
 	}
 
-	function normalizeAngle(angle) {
-		// Normalize angle to [0, 2π] to prevent overflow
-		return ((angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
-	}
-
 	function createPointerState(event) {
 		return {
 			pointerId: event.pointerId,
@@ -1355,119 +1315,33 @@
 		};
 	}
 
-	function startOrbit(pointerId, clientX, clientY) {
-		orbitState.pointerId = pointerId;
-		orbitState.startQuaternion = orbitState.quaternion.clone();
-		orbitState.startPos = new THREE.Vector2(clientX, clientY);
-	}
-
-	function updateOrbit(clientX, clientY) {
-		if (!orbitState.startPos) {
+	function startCubeRotationDrag(pointerId, clientX, clientY) {
+		if (!scene.userData.cubeGroup) {
 			return;
 		}
-
-		const deltaX = (clientX - orbitState.startPos.x) * 0.005;
-		const deltaY = (clientY - orbitState.startPos.y) * 0.005;
-
-		// Determine primary drag direction to prevent unwanted axis coupling
-		// Only rotate around the axis corresponding to the primary drag direction
-		const absDeltaX = Math.abs(deltaX);
-		const absDeltaY = Math.abs(deltaY);
 		
-		// Start with the initial quaternion from drag start
-		const newQuat = orbitState.startQuaternion.clone();
-		
-		if (absDeltaX > absDeltaY) {
-			// Horizontal drag dominates - only rotate around world Y-axis (up)
-			const yAxisQuat = new THREE.Quaternion();
-			yAxisQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
-			newQuat.premultiply(yAxisQuat);
-		} else {
-			// Vertical drag dominates - only rotate around world X-axis (right)
-			const xAxisQuat = new THREE.Quaternion();
-			xAxisQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -deltaY);
-			newQuat.premultiply(xAxisQuat);
-		}
-		
-		// Update the orbit state with new quaternion
-		orbitState.quaternion.copy(newQuat);
-
-		updateCameraPosition();
-	}
-
-	function startGesture() {
-		const ids = Array.from(pointerStates.keys());
-		if (ids.length !== 2) {
-			return;
-		}
-
-		const p1 = pointerStates.get(ids[0]);
-		const p2 = pointerStates.get(ids[1]);
-		const midpoint = midpointOfPointers(p1, p2);
-
-		gestureState = {
-			pointerIds: ids,
-			lastMidpoint: midpoint,
-			lastDistance: distanceBetweenPointers(p1, p2),
-			lastAngle: angleBetweenPointers(p1, p2)
+		cubeRotationDragState = {
+			pointerId: pointerId,
+			startY: clientY,
+			startRotationX: scene.userData.cubeGroup.rotation.x
 		};
 	}
 
-	function updateGesture() {
-		if (!gestureState) {
+	function updateCubeRotation(clientX, clientY) {
+		if (!cubeRotationDragState || !scene.userData.cubeGroup) {
 			return;
 		}
 
-		const p1 = pointerStates.get(gestureState.pointerIds[0]);
-		const p2 = pointerStates.get(gestureState.pointerIds[1]);
-		if (!p1 || !p2) {
-			gestureState = null;
-			return;
-		}
-
-		const midpoint = midpointOfPointers(p1, p2);
-		const distance = distanceBetweenPointers(p1, p2);
-		const angle = angleBetweenPointers(p1, p2);
-
-		gestureState.lastMidpoint.copy(midpoint);
-
-		if (distance > 0 && gestureState.lastDistance > 0) {
-			const scale = distance / gestureState.lastDistance;
-			cameraDistance = THREE.MathUtils.clamp(
-				cameraDistance / scale,
-				cameraLimits.minDistance,
-				cameraLimits.maxDistance
-			);
-			updateCameraPosition();
-		}
-
-		gestureState.lastDistance = distance;
-
-		// Handle rotation gesture
-		if (gestureState.lastAngle !== undefined) {
-			let angleDelta = angle - gestureState.lastAngle;
-			
-			// Normalize angle difference to [-PI, PI]
-			while (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
-			while (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
-			
-			// Only rotate if the angle change is significant enough to avoid jitter
-			if (Math.abs(angleDelta) > 0.01) {
-				// Rotate camera around the viewing axis (roll)
-				// Get the current forward direction (toward target)
-				const forward = new THREE.Vector3();
-				forward.subVectors(cameraTarget, camera.position).normalize();
-				
-				// Apply rotation around the forward axis
-				const rollQuat = new THREE.Quaternion();
-				rollQuat.setFromAxisAngle(forward, angleDelta);
-				orbitState.quaternion.premultiply(rollQuat);
-				
-				updateCameraPosition();
-			}
-		}
+		// Calculate vertical drag distance
+		const deltaY = clientY - cubeRotationDragState.startY;
 		
-		gestureState.lastAngle = angle;
+		// Rotate cube around horizontal (X) axis based on vertical drag
+		// Negative deltaY because screen Y is inverted
+		const rotationAngle = -deltaY * 0.005;
+		
+		// Apply rotation to the entire cube group (add to starting rotation)
+		const cubeGroup = scene.userData.cubeGroup;
+		cubeGroup.rotation.x = cubeRotationDragState.startRotationX + rotationAngle;
 	}
 
 	function handleDragMove() {
@@ -2110,31 +1984,10 @@
 	}
 
 	function updateCameraPosition() {
-		// Calculate camera position using quaternion rotation
-		// Start with a base position vector pointing along +Z axis at the desired distance
-		const basePosition = new THREE.Vector3(0, 0, cameraDistance);
-		
-		// Apply the quaternion rotation to get the actual camera position
-		basePosition.applyQuaternion(orbitState.quaternion);
-		
-		// Position camera relative to target
-		camera.position.copy(cameraTarget).add(basePosition);
+		// Fixed camera position - no rotation
+		const position = new THREE.Vector3(5, 4, 7).normalize().multiplyScalar(cameraDistance);
+		camera.position.copy(cameraTarget).add(position);
 		camera.lookAt(cameraTarget);
-	}
-
-	function distanceBetweenPointers(p1, p2) {
-		return Math.hypot(p1.currentX - p2.currentX, p1.currentY - p2.currentY);
-	}
-
-	function midpointOfPointers(p1, p2) {
-		return new THREE.Vector2(
-			(p1.currentX + p2.currentX) * 0.5,
-			(p1.currentY + p2.currentY) * 0.5
-		);
-	}
-
-	function angleBetweenPointers(p1, p2) {
-		return Math.atan2(p2.currentY - p1.currentY, p2.currentX - p1.currentX);
 	}
 
 	function onResize() {
