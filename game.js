@@ -1324,8 +1324,7 @@
 			pointerId: pointerId,
 			startX: clientX,
 			startY: clientY,
-			startRotationX: scene.userData.cubeGroup.rotation.x,
-			startRotationY: scene.userData.cubeGroup.rotation.y
+			startQuaternion: scene.userData.cubeGroup.quaternion.clone()
 		};
 	}
 
@@ -1338,17 +1337,32 @@
 		const deltaX = clientX - cubeRotationDragState.startX;
 		const deltaY = clientY - cubeRotationDragState.startY;
 		
-		// Rotate cube around horizontal (X) axis based on vertical drag
-		// Negative deltaY because screen Y is inverted
-		const rotationAngleX = -deltaY * 0.005;
+		// Rotation sensitivity
+		const sensitivity = 0.005;
 		
-		// Rotate cube around vertical (Y) axis based on horizontal drag
-		const rotationAngleY = deltaX * 0.005;
+		// Calculate rotation angles
+		const horizontalAngle = deltaX * sensitivity;
+		const verticalAngle = -deltaY * sensitivity; // Negative because screen Y is inverted
 		
-		// Apply rotations to the entire cube group (add to starting rotations)
+		// Get camera's up and right vectors (screen-based axes)
+		const cameraUp = camera.up.clone().normalize();
+		const cameraDirection = new THREE.Vector3();
+		camera.getWorldDirection(cameraDirection);
+		const cameraRight = new THREE.Vector3().crossVectors(cameraDirection, cameraUp).normalize();
+		
+		// Apply rotations around screen axes using quaternions
 		const cubeGroup = scene.userData.cubeGroup;
-		cubeGroup.rotation.x = cubeRotationDragState.startRotationX + rotationAngleX;
-		cubeGroup.rotation.y = cubeRotationDragState.startRotationY + rotationAngleY;
+		
+		// Reset to starting orientation
+		cubeGroup.quaternion.copy(cubeRotationDragState.startQuaternion);
+		
+		// Apply horizontal rotation around camera's up vector (screen vertical axis)
+		const horizontalQuat = new THREE.Quaternion().setFromAxisAngle(cameraUp, horizontalAngle);
+		cubeGroup.quaternion.premultiply(horizontalQuat);
+		
+		// Apply vertical rotation around camera's right vector (screen horizontal axis)
+		const verticalQuat = new THREE.Quaternion().setFromAxisAngle(cameraRight, verticalAngle);
+		cubeGroup.quaternion.premultiply(verticalQuat);
 	}
 
 	function handleDragMove() {
