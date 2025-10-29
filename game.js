@@ -1522,6 +1522,7 @@
 
 		let rotationAxisName;
 		let rotationLayer;
+		let axisSign; // Sign of the dominant axis component
 		
 		// Helper to get the layer from position (handles both even and odd cubes)
 		const getLayer = (value) => {
@@ -1539,12 +1540,15 @@
 			rotationAxisName = 'x';
 			// Layer is determined by the cubelet's position on this axis
 			rotationLayer = getLayer(cubelet.logicalPosition.x);
+			axisSign = Math.sign(localRotationAxis.x);
 		} else if (absY >= absX && absY >= absZ) {
 			rotationAxisName = 'y';
 			rotationLayer = getLayer(cubelet.logicalPosition.y);
+			axisSign = Math.sign(localRotationAxis.y);
 		} else {
 			rotationAxisName = 'z';
 			rotationLayer = getLayer(cubelet.logicalPosition.z);
+			axisSign = Math.sign(localRotationAxis.z);
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
@@ -1580,7 +1584,8 @@
 		}
 
 		// Convert the rotation sign to the final direction
-		const direction = deriveDirectionFromAngleSign(bestSign, rotationLayer);
+		// Multiply by axisSign to account for the sign of the rotation axis component
+		const direction = deriveDirectionFromAngleSign(bestSign * axisSign, rotationLayer);
 
 		return {
 			axis: rotationAxisName,
