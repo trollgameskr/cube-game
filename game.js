@@ -1579,7 +1579,7 @@
 			bestSign = 1;
 		}
 
-			// Convert the rotation sign to the final direction
+		// Convert the rotation sign to the final direction
 		// We need to account for the relationship between the world rotation axis
 		// and the chosen local axis (when transformed to world space)
 		
@@ -1601,6 +1601,7 @@
 		// The sign relationship between world rotation axis and world-space local axis
 		// tells us if they point in the same or opposite directions
 		const axisAlignment = worldRotationAxis.dot(localAxisVector);
+		// Use 1 as fallback if axes are perpendicular (dot product near 0, which should not occur in practice)
 		const alignedSign = Math.sign(axisAlignment) || 1;
 		
 		// Combine with bestSign to get the final direction
