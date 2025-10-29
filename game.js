@@ -1467,13 +1467,47 @@
 		const { cubelet, point, normal } = intersection;
 
 		// Calculate two orthogonal tangent vectors on the clicked face
-		// These represent the two possible drag directions on the face
-		let tangentA = new THREE.Vector3(0, 1, 0);
-		if (Math.abs(tangentA.dot(normal)) > 0.9) {
-			tangentA.set(1, 0, 0);
+		// These tangents should align with the cube's local coordinate system
+		// so that dragging along the cube's edges works correctly even when rotated
+		const cubeGroup = scene.userData.cubeGroup;
+		
+		// Get the cube's local X, Y, Z axes transformed to world space
+		const localX = new THREE.Vector3(1, 0, 0);
+		const localY = new THREE.Vector3(0, 1, 0);
+		const localZ = new THREE.Vector3(0, 0, 1);
+		
+		if (cubeGroup) {
+			localX.applyQuaternion(cubeGroup.quaternion);
+			localY.applyQuaternion(cubeGroup.quaternion);
+			localZ.applyQuaternion(cubeGroup.quaternion);
 		}
-		tangentA.cross(normal).normalize();
-		const tangentB = new THREE.Vector3().crossVectors(normal, tangentA).normalize();
+		
+		// Find which two local axes are most tangent to the face (least aligned with normal)
+		// The axis most aligned with the normal is the face's axis
+		const dotX = Math.abs(normal.dot(localX));
+		const dotY = Math.abs(normal.dot(localY));
+		const dotZ = Math.abs(normal.dot(localZ));
+		
+		let tangentA, tangentB;
+		
+		if (dotX >= dotY && dotX >= dotZ) {
+			// X is the face normal direction, use Y and Z as tangents
+			tangentA = localY.clone();
+			tangentB = localZ.clone();
+		} else if (dotY >= dotX && dotY >= dotZ) {
+			// Y is the face normal direction, use X and Z as tangents
+			tangentA = localX.clone();
+			tangentB = localZ.clone();
+		} else {
+			// Z is the face normal direction, use X and Y as tangents
+			tangentA = localX.clone();
+			tangentB = localY.clone();
+		}
+		
+		// Ensure tangents are truly perpendicular to the normal by projecting
+		// This handles small numerical errors and non-axis-aligned faces
+		tangentA.sub(normal.clone().multiplyScalar(tangentA.dot(normal))).normalize();
+		tangentB.sub(normal.clone().multiplyScalar(tangentB.dot(normal))).normalize();
 
 		// Project both tangent directions to screen space to see which matches the drag
 		const projectionA = projectDirectionToScreen(point, tangentA);
@@ -1507,7 +1541,6 @@
 
 		// Transform rotation axis from world space to cube's local space
 		// This accounts for the cube's current rotation (cubeGroup quaternion)
-		const cubeGroup = scene.userData.cubeGroup;
 		const localRotationAxis = rotationAxis3D.clone();
 		if (cubeGroup) {
 			// Apply inverse of cube's rotation to get local space axis
