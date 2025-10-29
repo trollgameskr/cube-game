@@ -1522,7 +1522,6 @@
 
 		let rotationAxisName;
 		let rotationLayer;
-		let axisSign; // Sign of the dominant axis component
 		
 		// Helper to get the layer from position (handles both even and odd cubes)
 		const getLayer = (value) => {
@@ -1540,15 +1539,12 @@
 			rotationAxisName = 'x';
 			// Layer is determined by the cubelet's position on this axis
 			rotationLayer = getLayer(cubelet.logicalPosition.x);
-			axisSign = Math.sign(localRotationAxis.x);
 		} else if (absY >= absX && absY >= absZ) {
 			rotationAxisName = 'y';
 			rotationLayer = getLayer(cubelet.logicalPosition.y);
-			axisSign = Math.sign(localRotationAxis.y);
 		} else {
 			rotationAxisName = 'z';
 			rotationLayer = getLayer(cubelet.logicalPosition.z);
-			axisSign = Math.sign(localRotationAxis.z);
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
@@ -1584,8 +1580,32 @@
 		}
 
 		// Convert the rotation sign to the final direction
-		// Multiply by axisSign to account for the sign of the rotation axis component
-		const direction = deriveDirectionFromAngleSign(bestSign * axisSign, rotationLayer);
+		// We need to account for the relationship between the world rotation axis
+		// and the chosen local axis (when transformed to world space)
+		
+		// Get the world-space direction of the chosen local axis
+		const localAxisVector = new THREE.Vector3();
+		if (rotationAxisName === 'x') {
+			localAxisVector.set(1, 0, 0);
+		} else if (rotationAxisName === 'y') {
+			localAxisVector.set(0, 1, 0);
+		} else {
+			localAxisVector.set(0, 0, 1);
+		}
+		
+		// Transform local axis to world space using cube's rotation
+		if (cubeGroup) {
+			localAxisVector.applyQuaternion(cubeGroup.quaternion);
+		}
+		
+		// The sign relationship between world rotation axis and world-space local axis
+		// tells us if they point in the same or opposite directions
+		const axisAlignment = worldRotationAxis.dot(localAxisVector);
+		// Use 1 as fallback if axes are perpendicular (dot product near 0, which should not occur in practice)
+		const alignedSign = Math.sign(axisAlignment) || 1;
+		
+		// Combine with bestSign to get the final direction
+		const direction = deriveDirectionFromAngleSign(bestSign * alignedSign, rotationLayer);
 
 		return {
 			axis: rotationAxisName,
