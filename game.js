@@ -1505,10 +1505,20 @@
 			rotationAxis3D = new THREE.Vector3().crossVectors(normal, dragTangent3D).normalize();
 		}
 
+		// Transform rotation axis from world space to cube's local space
+		// This accounts for the cube's current rotation (cubeGroup quaternion)
+		const cubeGroup = scene.userData.cubeGroup;
+		const localRotationAxis = rotationAxis3D.clone();
+		if (cubeGroup) {
+			// Apply inverse of cube's rotation to get local space axis
+			const inverseQuaternion = cubeGroup.quaternion.clone().invert();
+			localRotationAxis.applyQuaternion(inverseQuaternion);
+		}
+
 		// Determine which of the three cube axes (x, y, z) best matches the rotation axis
-		const absX = Math.abs(rotationAxis3D.x);
-		const absY = Math.abs(rotationAxis3D.y);
-		const absZ = Math.abs(rotationAxis3D.z);
+		const absX = Math.abs(localRotationAxis.x);
+		const absY = Math.abs(localRotationAxis.y);
+		const absZ = Math.abs(localRotationAxis.z);
 
 		let rotationAxisName;
 		let rotationLayer;
@@ -1539,6 +1549,12 @@
 
 		// Determine the rotation direction by testing which way matches the drag best
 		const rotationAxisVector = AXIS_VECTORS[rotationAxisName];
+		// Transform the local axis to world space for rotation testing
+		const worldRotationAxis = rotationAxisVector.clone();
+		if (cubeGroup) {
+			worldRotationAxis.applyQuaternion(cubeGroup.quaternion);
+		}
+		
 		const samplePoint = point.clone().add(dragTangent3D.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
 		const screenStart = projectPointToScreen(samplePoint);
@@ -1549,7 +1565,7 @@
 
 		// Test both rotation directions to see which one makes the point follow the drag
 		for (const sign of [1, -1]) {
-			const rotatedPoint = rotatePointAroundAxis(samplePoint, rotationAxisVector, sign * baseAngle);
+			const rotatedPoint = rotatePointAroundAxis(samplePoint, worldRotationAxis, sign * baseAngle);
 			const rotatedScreen = projectPointToScreen(rotatedPoint);
 			const predicted = rotatedScreen.sub(screenStart);
 			if (predicted.lengthSq() === 0) {
