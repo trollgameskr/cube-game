@@ -1548,12 +1548,8 @@
 		}
 
 		// Determine the rotation direction by testing which way matches the drag best
-		const rotationAxisVector = AXIS_VECTORS[rotationAxisName];
-		// Transform the local axis to world space for rotation testing
-		const worldRotationAxis = rotationAxisVector.clone();
-		if (cubeGroup) {
-			worldRotationAxis.applyQuaternion(cubeGroup.quaternion);
-		}
+		// Use the original rotationAxis3D which is already in world space
+		const worldRotationAxis = rotationAxis3D.clone();
 		
 		const samplePoint = point.clone().add(dragTangent3D.clone().multiplyScalar(0.35));
 		const baseAngle = Math.PI / 2;
