@@ -1476,7 +1476,9 @@
 		const localY = new THREE.Vector3(0, 1, 0);
 		const localZ = new THREE.Vector3(0, 0, 1);
 		
-		if (cubeGroup) {
+		// Transform local axes to world space using cube's rotation
+		// If cubeGroup doesn't exist, axes remain as world-space unit vectors (identity rotation)
+		if (cubeGroup && cubeGroup.quaternion) {
 			localX.applyQuaternion(cubeGroup.quaternion);
 			localY.applyQuaternion(cubeGroup.quaternion);
 			localZ.applyQuaternion(cubeGroup.quaternion);
@@ -1506,8 +1508,10 @@
 		
 		// Ensure tangents are truly perpendicular to the normal by projecting
 		// This handles small numerical errors and non-axis-aligned faces
-		tangentA.sub(normal.clone().multiplyScalar(tangentA.dot(normal))).normalize();
-		tangentB.sub(normal.clone().multiplyScalar(tangentB.dot(normal))).normalize();
+		const dotA = tangentA.dot(normal);
+		const dotB = tangentB.dot(normal);
+		tangentA.sub(normal.clone().multiplyScalar(dotA)).normalize();
+		tangentB.sub(normal.clone().multiplyScalar(dotB)).normalize();
 
 		// Project both tangent directions to screen space to see which matches the drag
 		const projectionA = projectDirectionToScreen(point, tangentA);
