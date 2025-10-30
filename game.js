@@ -2034,11 +2034,24 @@
 			enqueueMove({
 				...move,
 				onComplete: idx === finalMoveIndex ? () => {
-					// Check if cube is solved after scrambling (rare edge case)
-					// If so, scramble again to ensure the game starts in an unsolved state
+					// Check if cube is solved after scrambling (extremely rare edge case)
+					// If so, add one more random move to ensure the game starts in an unsolved state
+					// This prevents infinite recursion while still handling the edge case
 					if (isCubeSolved()) {
-						console.log('Scramble resulted in solved cube, scrambling again...');
-						scrambleCube();
+						console.log('Scramble resulted in solved cube, adding one more move...');
+						const randomAxis = axes[Math.floor(Math.random() * axes.length)];
+						const randomLayer = -halfSize + Math.floor(Math.random() * (2 * halfSize + 1));
+						const randomDirection = Math.random() > 0.5 ? 1 : -1;
+						enqueueMove({
+							axis: randomAxis,
+							layer: randomLayer,
+							direction: randomDirection,
+							record: false,
+							duration: 50,
+							onComplete: () => {
+								setMessage('섞기가 완료되었습니다! 즐겁게 플레이하세요.');
+							}
+						});
 					} else {
 						setMessage('섞기가 완료되었습니다! 즐겁게 플레이하세요.');
 					}
