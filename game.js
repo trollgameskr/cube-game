@@ -1466,8 +1466,10 @@
 		// Apply pinch-to-zoom: adjust camera distance based on the change in distance between touch points
 		if (cameraRotationDragState.startDistance > 0) {
 			const distanceRatio = currentDistance / cameraRotationDragState.startDistance;
+			// When fingers pinch closer (distanceRatio < 1), zoom in (decrease camera distance)
+			// When fingers spread apart (distanceRatio > 1), zoom out (increase camera distance)
 			cameraDistance = THREE.MathUtils.clamp(
-				cameraRotationDragState.startCameraDistance / distanceRatio,
+				cameraRotationDragState.startCameraDistance * distanceRatio,
 				cameraLimits.minDistance,
 				cameraLimits.maxDistance
 			);
