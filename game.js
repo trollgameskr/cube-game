@@ -126,6 +126,8 @@
 		maxDistance: 24
 	};
 
+	const MIN_FINGER_DISTANCE = 10; // Minimum distance in pixels between fingers to enable two-finger gestures
+
 	let cameraDistance = 7.4;
 	let cameraOrbitTheta = Math.atan2(7, 5); // Horizontal angle (around Y-axis)
 	let cameraOrbitPhi = Math.acos(4 / Math.sqrt(5*5 + 4*4 + 7*7)); // Vertical angle (from Y-axis)
@@ -1414,7 +1416,7 @@
 		const initialDistance = Math.sqrt(initialDx * initialDx + initialDy * initialDy);
 
 		// Only enable two-finger gestures if fingers are sufficiently far apart (prevent division by zero)
-		if (initialDistance < 10) {
+		if (initialDistance < MIN_FINGER_DISTANCE) {
 			return;
 		}
 
