@@ -1413,6 +1413,11 @@
 		const initialAngle = Math.atan2(initialDy, initialDx);
 		const initialDistance = Math.sqrt(initialDx * initialDx + initialDy * initialDy);
 
+		// Only enable two-finger gestures if fingers are sufficiently far apart (prevent division by zero)
+		if (initialDistance < 10) {
+			return;
+		}
+
 		twoFingerRotationState = {
 			initialAngle,
 			initialDistance,
@@ -1449,16 +1454,19 @@
 		cameraRoll = twoFingerRotationState.startRoll + angleDiff;
 
 		// Calculate the distance ratio for pinch-to-zoom
-		const distanceRatio = currentDistance / twoFingerRotationState.initialDistance;
-		
-		// Apply zoom by adjusting camera distance
-		// When fingers spread apart (distanceRatio > 1), we want to zoom in (decrease camera distance)
-		// When fingers pinch together (distanceRatio < 1), we want to zoom out (increase camera distance)
-		cameraDistance = THREE.MathUtils.clamp(
-			twoFingerRotationState.startDistance / distanceRatio,
-			cameraLimits.minDistance,
-			cameraLimits.maxDistance
-		);
+		// Safety check: ensure initialDistance is not zero (should already be guaranteed by startTwoFingerRotation)
+		if (twoFingerRotationState.initialDistance > 0) {
+			const distanceRatio = currentDistance / twoFingerRotationState.initialDistance;
+			
+			// Apply zoom by adjusting camera distance
+			// When fingers spread apart (distanceRatio > 1), we want to zoom in (decrease camera distance)
+			// When fingers pinch together (distanceRatio < 1), we want to zoom out (increase camera distance)
+			cameraDistance = THREE.MathUtils.clamp(
+				twoFingerRotationState.startDistance / distanceRatio,
+				cameraLimits.minDistance,
+				cameraLimits.maxDistance
+			);
+		}
 
 		// Update camera position to apply both rotation and zoom
 		updateCameraPosition();
