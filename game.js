@@ -1286,7 +1286,6 @@
 
 		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
 			updateCubeRotation(event.clientX, event.clientY);
-			return;
 		}
 
 		if (twoFingerRotationState && pointerStates.size === 2) {
