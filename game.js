@@ -1452,8 +1452,8 @@
 		while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
 		while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
 
-		// Apply the rotation to the camera roll
-		cameraRoll = twoFingerRotationState.startRoll + angleDiff;
+		// Apply the rotation to the camera roll (reversed direction)
+		cameraRoll = twoFingerRotationState.startRoll - angleDiff;
 
 		// Calculate the distance ratio for pinch-to-zoom
 		// Safety check: ensure initialDistance is not zero (should already be guaranteed by startTwoFingerRotation)
