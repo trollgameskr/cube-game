@@ -1411,10 +1411,13 @@
 		const initialDx = p2.clientX - p1.clientX;
 		const initialDy = p2.clientY - p1.clientY;
 		const initialAngle = Math.atan2(initialDy, initialDx);
+		const initialDistance = Math.sqrt(initialDx * initialDx + initialDy * initialDy);
 
 		twoFingerRotationState = {
 			initialAngle,
+			initialDistance,
 			startRoll: cameraRoll,
+			startDistance: cameraDistance,
 			centerX,
 			centerY
 		};
@@ -1433,8 +1436,9 @@
 		const currentDx = p2.currentX - p1.currentX;
 		const currentDy = p2.currentY - p1.currentY;
 		const currentAngle = Math.atan2(currentDy, currentDx);
+		const currentDistance = Math.sqrt(currentDx * currentDx + currentDy * currentDy);
 
-		// Calculate the angle difference
+		// Calculate the angle difference for rotation
 		let angleDiff = currentAngle - twoFingerRotationState.initialAngle;
 
 		// Normalize angle difference to [-PI, PI]
@@ -1444,7 +1448,19 @@
 		// Apply the rotation to the camera roll
 		cameraRoll = twoFingerRotationState.startRoll + angleDiff;
 
-		// Update camera position to apply the roll
+		// Calculate the distance ratio for pinch-to-zoom
+		const distanceRatio = currentDistance / twoFingerRotationState.initialDistance;
+		
+		// Apply zoom by adjusting camera distance
+		// When fingers spread apart (distanceRatio > 1), we want to zoom in (decrease camera distance)
+		// When fingers pinch together (distanceRatio < 1), we want to zoom out (increase camera distance)
+		cameraDistance = THREE.MathUtils.clamp(
+			twoFingerRotationState.startDistance / distanceRatio,
+			cameraLimits.minDistance,
+			cameraLimits.maxDistance
+		);
+
+		// Update camera position to apply both rotation and zoom
 		updateCameraPosition();
 	}
 
