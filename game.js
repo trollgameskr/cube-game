@@ -129,8 +129,10 @@
 	let cameraDistance = 7.4;
 	let cameraOrbitTheta = Math.atan2(7, 5); // Horizontal angle (around Y-axis)
 	let cameraOrbitPhi = Math.acos(4 / Math.sqrt(5*5 + 4*4 + 7*7)); // Vertical angle (from Y-axis)
+	let cameraRoll = 0; // Screen rotation angle (around camera's forward axis)
 	let dragState = null;
 	let cubeRotationDragState = null; // State for cube rotation when dragging on empty space
+	let twoFingerRotationState = null; // State for two-finger rotation
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1257,8 +1259,14 @@
 				// Start cube rotation drag on empty space
 				startCubeRotationDrag(event.pointerId, pointer.clientX, pointer.clientY);
 			}
+		} else if (pointerStates.size === 2) {
+			// Two pointers: start two-finger rotation
+			// Cancel any existing single-pointer operations
+			dragState = null;
+			cubeRotationDragState = null;
+			
+			startTwoFingerRotation();
 		}
-		// Note: 2-finger camera rotation has been removed as per requirements
 	}
 
 	function onPointerMove(event) {
@@ -1278,8 +1286,12 @@
 
 		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
 			updateCubeRotation(event.clientX, event.clientY);
+			return;
 		}
-		// Note: 2-finger camera rotation has been removed as per requirements
+
+		if (twoFingerRotationState && pointerStates.size === 2) {
+			updateTwoFingerRotation();
+		}
 	}
 
 	function onPointerUp(event) {
@@ -1297,7 +1309,16 @@
 		if (cubeRotationDragState && cubeRotationDragState.pointerId === event.pointerId) {
 			cubeRotationDragState = null;
 		}
-		// Note: 2-finger camera rotation has been removed as per requirements
+
+		if (twoFingerRotationState) {
+			// If we still have one pointer left after this release, switch back to single-pointer mode
+			if (pointerStates.size === 1) {
+				twoFingerRotationState = null;
+				// Could potentially start single-pointer rotation here if desired
+			} else if (pointerStates.size === 0) {
+				twoFingerRotationState = null;
+			}
+		}
 	}
 
 	function onWheel(event) {
@@ -1372,6 +1393,60 @@
 		// Apply vertical rotation around camera's right vector (screen horizontal axis)
 		tmpQuat2.setFromAxisAngle(cameraRight, verticalAngle);
 		cubeGroup.quaternion.premultiply(tmpQuat2);
+	}
+
+	function startTwoFingerRotation() {
+		if (pointerStates.size !== 2) {
+			return;
+		}
+
+		const pointers = Array.from(pointerStates.values());
+		const p1 = pointers[0];
+		const p2 = pointers[1];
+
+		// Calculate the center point between the two fingers
+		const centerX = (p1.clientX + p2.clientX) / 2;
+		const centerY = (p1.clientY + p2.clientY) / 2;
+
+		// Calculate the initial vector between the two fingers
+		const initialDx = p2.clientX - p1.clientX;
+		const initialDy = p2.clientY - p1.clientY;
+		const initialAngle = Math.atan2(initialDy, initialDx);
+
+		twoFingerRotationState = {
+			initialAngle,
+			startRoll: cameraRoll,
+			centerX,
+			centerY
+		};
+	}
+
+	function updateTwoFingerRotation() {
+		if (!twoFingerRotationState || pointerStates.size !== 2) {
+			return;
+		}
+
+		const pointers = Array.from(pointerStates.values());
+		const p1 = pointers[0];
+		const p2 = pointers[1];
+
+		// Calculate the current vector between the two fingers
+		const currentDx = p2.currentX - p1.currentX;
+		const currentDy = p2.currentY - p1.currentY;
+		const currentAngle = Math.atan2(currentDy, currentDx);
+
+		// Calculate the angle difference
+		let angleDiff = currentAngle - twoFingerRotationState.initialAngle;
+
+		// Normalize angle difference to [-PI, PI]
+		while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+		while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+		// Apply the rotation to the camera roll
+		cameraRoll = twoFingerRotationState.startRoll + angleDiff;
+
+		// Update camera position to apply the roll
+		updateCameraPosition();
 	}
 
 	function handleDragMove() {
@@ -2118,6 +2193,15 @@
 		
 		camera.position.set(x, y, z).add(cameraTarget);
 		camera.lookAt(cameraTarget);
+		
+		// Apply camera roll (rotation around the camera's forward axis)
+		if (cameraRoll !== 0) {
+			// Rotate the camera's up vector around its forward direction
+			const forward = tmpVec3.subVectors(cameraTarget, camera.position).normalize();
+			const rotationQuat = tmpQuat.setFromAxisAngle(forward, cameraRoll);
+			camera.up.set(0, 1, 0).applyQuaternion(rotationQuat);
+			camera.lookAt(cameraTarget);
+		}
 	}
 
 	function onResize() {
