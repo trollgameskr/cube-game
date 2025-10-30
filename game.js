@@ -1396,11 +1396,22 @@
 		const centerX = (pointers[0].clientX + pointers[1].clientX) / 2;
 		const centerY = (pointers[0].clientY + pointers[1].clientY) / 2;
 
+		// Calculate initial distance between the two touch points for pinch-to-zoom
+		const dx = pointers[1].clientX - pointers[0].clientX;
+		const dy = pointers[1].clientY - pointers[0].clientY;
+		const startDistance = Math.sqrt(dx * dx + dy * dy);
+
+		// Calculate initial angle of the line between the two touch points
+		const startAngle = Math.atan2(dy, dx);
+
 		cameraRotationDragState = {
 			startCenterX: centerX,
 			startCenterY: centerY,
 			startTheta: cameraOrbitTheta,
-			startPhi: cameraOrbitPhi
+			startPhi: cameraOrbitPhi,
+			startDistance: startDistance,
+			startAngle: startAngle,
+			startCameraDistance: cameraDistance
 		};
 	}
 
@@ -1418,6 +1429,14 @@
 		const currentCenterX = (pointers[0].currentX + pointers[1].currentX) / 2;
 		const currentCenterY = (pointers[0].currentY + pointers[1].currentY) / 2;
 
+		// Calculate current distance between the two touch points for pinch-to-zoom
+		const dx = pointers[1].currentX - pointers[0].currentX;
+		const dy = pointers[1].currentY - pointers[0].currentY;
+		const currentDistance = Math.sqrt(dx * dx + dy * dy);
+
+		// Calculate current angle of the line between the two touch points
+		const currentAngle = Math.atan2(dy, dx);
+
 		// Calculate drag deltas from the center point
 		const deltaX = currentCenterX - cameraRotationDragState.startCenterX;
 		const deltaY = currentCenterY - cameraRotationDragState.startCenterY;
@@ -1425,10 +1444,15 @@
 		// Camera rotation sensitivity
 		const sensitivity = 0.005;
 
+		// Calculate angle change between the two touch points
+		const angleDelta = currentAngle - cameraRotationDragState.startAngle;
+
 		// Update camera orbit angles
 		// Horizontal drag rotates around Y-axis (theta)
+		// Angle rotation between fingers also affects theta (adds rotational control)
 		// Note: Subtract deltaX because positive X movement should rotate view to the right (decrease theta)
-		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity;
+		// Note: Add angleDelta to allow rotation based on finger angle changes
+		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity + angleDelta;
 		
 		// Vertical drag changes the vertical angle (phi)
 		// Note: Add deltaY because positive Y (down) movement should lower the view (increase phi)
@@ -1438,6 +1462,18 @@
 			0.1,  // Small offset from top (0)
 			Math.PI - 0.1  // Small offset from bottom (PI)
 		);
+
+		// Apply pinch-to-zoom: adjust camera distance based on the change in distance between touch points
+		if (cameraRotationDragState.startDistance > 0) {
+			const distanceRatio = currentDistance / cameraRotationDragState.startDistance;
+			// When fingers pinch closer (distanceRatio < 1), zoom in (decrease camera distance)
+			// When fingers spread apart (distanceRatio > 1), zoom out (increase camera distance)
+			cameraDistance = THREE.MathUtils.clamp(
+				cameraRotationDragState.startCameraDistance * distanceRatio,
+				cameraLimits.minDistance,
+				cameraLimits.maxDistance
+			);
+		}
 
 		updateCameraPosition();
 	}
