@@ -834,10 +834,9 @@ body.focus-mode .back-view-btn {
 /* Fix cube positioning in landscape focus mode on mobile */
 @media (max-width: 960px) and (orientation: landscape) {
     body.focus-mode .cube-stage {
-        width: auto;
+        width: 100vw;
         height: 100vh;
-        max-width: 100vh;
-        aspect-ratio: 1;
+        max-width: none;
     }
 }
 
@@ -845,9 +844,8 @@ body.focus-mode .back-view-btn {
 @media (max-width: 960px) and (orientation: portrait) {
     body.focus-mode .cube-stage {
         width: 100vw;
-        height: auto;
-        aspect-ratio: 1;
-        margin: 0 auto;
+        height: 100vh;
+        margin: 0;
     }
 }
 
