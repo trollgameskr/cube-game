@@ -1451,8 +1451,8 @@
 		// Horizontal drag rotates around Y-axis (theta)
 		// Angle rotation between fingers also affects theta (adds rotational control)
 		// Note: Subtract deltaX because positive X movement should rotate view to the right (decrease theta)
-		// Note: Add angleDelta to allow rotation based on finger angle changes
-		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity + angleDelta;
+		// Note: Subtract angleDelta to allow rotation based on finger angle changes
+		cameraOrbitTheta = cameraRotationDragState.startTheta - deltaX * sensitivity - angleDelta;
 		
 		// Vertical drag changes the vertical angle (phi)
 		// Note: Add deltaY because positive Y (down) movement should lower the view (increase phi)
@@ -1465,9 +1465,9 @@
 
 		// Apply pinch-to-zoom: adjust camera distance based on the change in distance between touch points
 		if (cameraRotationDragState.startDistance > 0) {
-			const distanceRatio = currentDistance / cameraRotationDragState.startDistance;
-			// When fingers pinch closer (distanceRatio < 1), zoom in (decrease camera distance)
-			// When fingers spread apart (distanceRatio > 1), zoom out (increase camera distance)
+			const distanceRatio = cameraRotationDragState.startDistance / currentDistance;
+			// When fingers pinch closer (distanceRatio > 1), zoom in (decrease camera distance)
+			// When fingers spread apart (distanceRatio < 1), zoom out (increase camera distance)
 			cameraDistance = THREE.MathUtils.clamp(
 				cameraRotationDragState.startCameraDistance * distanceRatio,
 				cameraLimits.minDistance,
