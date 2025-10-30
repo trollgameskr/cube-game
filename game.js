@@ -2034,9 +2034,11 @@
 			enqueueMove({
 				...move,
 				onComplete: idx === finalMoveIndex ? () => {
-					// Check if cube is solved after scrambling
+					// Check if cube is solved after scrambling (rare edge case)
+					// If so, scramble again to ensure the game starts in an unsolved state
 					if (isCubeSolved()) {
-						handleVictory();
+						console.log('Scramble resulted in solved cube, scrambling again...');
+						scrambleCube();
 					} else {
 						setMessage('섞기가 완료되었습니다! 즐겁게 플레이하세요.');
 					}
