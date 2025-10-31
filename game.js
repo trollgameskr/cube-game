@@ -130,7 +130,7 @@
 
 	let cameraDistance = 7.4;
 	let cameraOrbitTheta = Math.atan2(7, 5); // Horizontal angle (around Y-axis)
-	let cameraOrbitPhi = Math.PI / 2; // Vertical angle (from Y-axis) - 90 degrees for horizontal view
+	let cameraOrbitPhi = Math.PI / 2; // Vertical angle (from Y-axis) - Math.PI/2 means camera at same Y height as cube center (horizontal/level view)
 	let cameraRoll = 0; // Screen rotation angle (around camera's forward axis)
 	let dragState = null;
 	let cubeRotationDragState = null; // State for cube rotation when dragging on empty space
@@ -151,7 +151,7 @@
 	stageEl.appendChild(renderer.domElement);
 
 	const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 80);
-	camera.position.set(5, 0, 7);
+	camera.position.set(5, 0, 7); // Initial position (will be recalculated by updateCameraPosition())
 	camera.up.set(0, 1, 0);
 
 	const scene = new THREE.Scene();
